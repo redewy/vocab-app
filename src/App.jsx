@@ -712,7 +712,7 @@ export default function VocabApp() {
       <div style={{ maxWidth: 780, margin: "0 auto", padding: "36px 20px 0" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 12 }}>
           <div>
-            <div style={{ fontSize: 11, letterSpacing: 5, color: "#a0978a", marginBottom: 6, textTransform: "uppercase" }}>2024년 10월 고1 모의고사</div>
+            <div style={{ fontSize: 11, letterSpacing: 5, color: "#a0978a", marginBottom: 6, textTransform: "uppercase" }}>원포원 영어학원</div>
             <h1 style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 34, fontWeight: 700, color: "#2c2824", letterSpacing: -0.5 }}>VOCABULARY</h1>
           </div>
           <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
