@@ -798,7 +798,7 @@ export default function VocabApp() {
                   <div style={{ background: "#fff", border: "1px solid #e5e2dc", borderTop: "none", borderRadius: "0 0 10px 10px", overflow: "hidden" }}>
                     {secWords.map((w, i) => (
                       <div className="vocab-row" key={`${sec}-${i}`}>
-                        <button className="star-btn" onClick={() => toggleStar(w.w)}>{starred.has(w.w) ? "⭐" : "☆"}</button>
+                        <button className="star-btn" onClick={() => toggleStar(w.w)}>{starred.has(w.w) ? "⭐" : <span style={{ color: "#c4a46c" }}>☆</span>}</button>
                         <span className={hideMode==="word"?"blur-text":""} style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 14, fontWeight: 500, color: "#2c2824" }}>{w.w}</span>
                         <span className={hideMode==="meaning"?"blur-text":""} style={{ fontSize: 13, color: "#6b655c" }}>{w.m}</span>
                       </div>
