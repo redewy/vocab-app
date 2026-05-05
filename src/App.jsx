@@ -219,13 +219,27 @@ function CardTestMode({ allWords, allSections }) {
 
   if (screen === "done") {
     return (
-      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "60px 20px", textAlign: "center", animation: "fadeUp 0.4s ease-out" }}>
-        <div style={{ fontSize: 52, marginBottom: 16 }}>✅</div>
-        <h2 style={{ fontSize: 22, fontWeight: 700, color: "#2c2824", marginBottom: 8 }}>테스트 완료!</h2>
-        <p style={{ fontSize: 14, color: "#8a8278", marginBottom: 32 }}>총 {deck.length}개 단어를 모두 봤어요.</p>
-        <div style={{ display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "center" }}>
-          <button className="action-btn primary" onClick={() => goWord(0, deck)}>🔄 다시 시작</button>
-          <button className="action-btn secondary" onClick={stopTest}>설정으로</button>
+      <div style={{ padding: "40px 20px", maxWidth: 600, margin: "0 auto", animation: "fadeUp 0.4s ease-out" }}>
+        <div style={{ textAlign: "center", marginBottom: 32 }}>
+          <div style={{ fontSize: 52, marginBottom: 16 }}>✅</div>
+          <h2 style={{ fontSize: 22, fontWeight: 700, color: "#2c2824", marginBottom: 8 }}>테스트 완료!</h2>
+          <p style={{ fontSize: 14, color: "#8a8278", marginBottom: 24 }}>총 {deck.length}개 단어를 모두 봤어요.</p>
+          <div style={{ display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "center" }}>
+            <button className="action-btn primary" onClick={() => goWord(0, deck)}>🔄 다시 시작</button>
+            <button className="action-btn secondary" onClick={stopTest}>설정으로</button>
+          </div>
+        </div>
+        <div style={{ borderTop: "1px solid #e8e3db", paddingTop: 24 }}>
+          <div style={{ fontSize: 11, color: "#a0978a", fontWeight: 600, letterSpacing: 3, marginBottom: 16, textTransform: "uppercase" }}>Answer Sheet</div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0" }}>
+            {deck.map((word, i) => (
+              <div key={i} style={{ display: "flex", alignItems: "baseline", gap: 8, padding: "7px 10px", borderBottom: "1px solid #f0ece5", background: i % 2 === 0 ? "#faf9f6" : "#fff" }}>
+                <span style={{ fontSize: 11, color: "#c4a46c", minWidth: 20, textAlign: "right" }}>{i + 1}</span>
+                <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 13, color: "#2c2824", fontWeight: 600, minWidth: 0, flex: 1 }}>{word.w}</span>
+                <span style={{ fontSize: 13, color: "#6b6259", flexShrink: 0 }}>{word.m}</span>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
     );
