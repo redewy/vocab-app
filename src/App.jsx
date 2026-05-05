@@ -30,7 +30,7 @@ const DEFAULT_TABS = [
   { name: "31~36번", words: DEFAULT_WORDS.filter(w => w.s >= 31) },
 ];
 
-const ACCESS_CODE = "1412026";
+const ACCESS_CODE = "141";
 
 // ① 스프레드시트 > 확장 프로그램 > Apps Script에 gas-code.js 내용 붙여넣기
 // ② [배포] → [새 배포] → 유형: 웹 앱, 액세스: 모든 사용자 → 배포
@@ -209,7 +209,7 @@ function CardTestMode({ allWords, allSections }) {
           <span style={{ fontSize: 13, color: "#3a3a3a" }}>{idx + 1} / {deck.length}</span>
           <button onClick={stopTest} style={{ padding: "6px 16px", border: "1px solid #2a2a2a", borderRadius: 6, background: "transparent", cursor: "pointer", fontSize: 13, color: "#3a3a3a", fontFamily: "'Noto Sans KR'" }}>중단</button>
         </div>
-        <div style={{ fontSize: 12, color: "#2a2a2a", marginBottom: 20, fontFamily: "'Noto Sans KR'" }}>받아쓰세요</div>
+        <div style={{ fontSize: 12, color: "#3b3b3b", marginBottom: 20, fontFamily: "'Noto Sans KR'" }}>한글 뜻을 쓰세요</div>
         <div style={{ width: 60, height: 60, borderRadius: "50%", border: "2px solid #2a2a2a", display: "flex", alignItems: "center", justifyContent: "center" }}>
           <span style={{ fontSize: 26, fontWeight: 600, color: "#2a2a2a" }}>{Math.max(countdown, 0)}</span>
         </div>
@@ -251,7 +251,7 @@ function CardTestMode({ allWords, allSections }) {
         </p>
       </div>
       <div style={{ marginBottom: 24, padding: "14px 18px", background: "rgba(196,164,108,0.08)", borderRadius: 10, border: "1px solid rgba(196,164,108,0.2)", fontSize: 13, color: "#6b655c", lineHeight: 1.9 }}>
-        📸 영단어 <strong>3초</strong> 표시 후 → 검은 화면 <strong>5초</strong> (종이에 받아쓰기)<br/>
+        📸 영단어 <strong>3초</strong> 표시 후 → 검은 화면 <strong>5초</strong> (종이에 한글 뜻 쓰기)<br/>
         찰칵 소리와 함께 다음 단어로 넘어갑니다.
       </div>
       <button className="action-btn primary" onClick={startTest} disabled={filteredWords.length === 0}
