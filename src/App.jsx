@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import * as XLSX from "xlsx";
 
-/* ───────────────── WORD DATA ───────────────── */
+/* ───────────────── WORD DATA (백업용 — 앱에서는 미사용) ───────────────── */
 const DEFAULT_WORDS = [
   {s:18,w:"department",m:"부서, 부"},{s:18,w:"with regard to A",m:"A와 관련하여"},{s:18,w:"state",m:"주"},{s:18,w:"funding",m:"자금, 예산"},{s:18,w:"construction",m:"건설"},{s:18,w:"functional",m:"기능하는"},{s:18,w:"despite",m:"~에도 불구하고"},{s:18,w:"submit",m:"제출하다"},{s:18,w:"require",m:"요구하다"},{s:18,w:"documentation",m:"서류"},{s:18,w:"notification",m:"통지"},{s:18,w:"considerable",m:"상당한"},{s:18,w:"consequence",m:"결과"},{s:18,w:"budgetary",m:"예산의"},{s:18,w:"constraint",m:"제한, 제약"},{s:18,w:"therefore",m:"그러므로"},{s:18,w:"in order to +V",m:"V하기 위해서"},{s:18,w:"proceed",m:"진행하다"},{s:18,w:"request",m:"요청하다, 요청"},{s:18,w:"notify",m:"통지하다"},{s:18,w:"regarding A",m:"A와 관련하여"},{s:18,w:"look forward to A",m:"A를 고대하다"},
   {s:19,w:"figure",m:"생각하다"},{s:19,w:"select",m:"선택하다"},{s:19,w:"anticipation",m:"기대, 예상"},{s:19,w:"fall apart",m:"산산이 무너지다"},
@@ -22,13 +22,8 @@ const DEFAULT_WORDS = [
   {s:36,w:"thrive",m:"성공하다, 번창하다"},{s:36,w:"depend on",m:"~에 달려 있다"},{s:36,w:"navigate",m:"다루다"},{s:36,w:"value",m:"~를 가치 있게 여기다"},{s:36,w:"count on",m:"~을 기대하다"},{s:36,w:"probably",m:"아마도"},{s:36,w:"merit",m:"이점"},{s:36,w:"physically",m:"신체적으로"},{s:36,w:"genetically",m:"유전적으로"},{s:36,w:"million",m:"백만"},{s:36,w:"skilled",m:"능숙한"},{s:36,w:"maximize",m:"최대화하다"},{s:36,w:"standing",m:"지위"},{s:36,w:"tendency",m:"경향"},{s:36,w:"unconsciously",m:"무의식적으로"},{s:36,w:"monitor",m:"관찰하다, 감시하다"},{s:36,w:"perceive",m:"인식하다"},{s:36,w:"process",m:"처리하다, 과정"},{s:36,w:"self-esteem",m:"자존감"},{s:36,w:"pride",m:"자존심, 자부심"},{s:36,w:"shame",m:"수치심"},{s:36,w:"insecurity",m:"불안"},{s:36,w:"compel",m:"강요하다"},{s:36,w:"crucially",m:"결정적으로"},{s:36,w:"realize",m:"깨닫다"},{s:36,w:"respond to",m:"~에 반응하다"},{s:36,w:"performance",m:"수행"},{s:36,w:"come off",m:"나타나다"},{s:36,w:"grudging",m:"투덜대는"},{s:36,w:"cynical",m:"냉소적인"},{s:36,w:"persuasive",m:"설득력이 있는"},
 ];
 
-/* ───────────────── TAB DATA ───────────────── */
-const DEFAULT_TABS = [
-  { name: "18~21번", words: DEFAULT_WORDS.filter(w => w.s >= 18 && w.s <= 21) },
-  { name: "22~25번", words: DEFAULT_WORDS.filter(w => w.s >= 22 && w.s <= 25) },
-  { name: "26~30번", words: DEFAULT_WORDS.filter(w => w.s >= 26 && w.s <= 30) },
-  { name: "31~36번", words: DEFAULT_WORDS.filter(w => w.s >= 31) },
-];
+/* ───────────────── EMPTY INITIAL STATE ───────────────── */
+const DEFAULT_TABS = [];
 
 const ACCESS_CODE = "141";
 
@@ -469,22 +464,27 @@ function SectionChips({ sections, allWords, selected, onToggle, onAll, onNone, l
 /* ───────────────── MAIN APP ───────────────── */
 export default function VocabApp() {
   const [loggedIn, setLoggedIn] = useState(false);
-  const [tabs, setTabs] = useState(DEFAULT_TABS);
+  const [tabs, setTabs] = useState([]);
   const [activeTabIdx, setActiveTabIdx] = useState(0);
-  const [allWords, setAllWords] = useState(DEFAULT_TABS[0].words);
+  const [allWords, setAllWords] = useState([]);
   const [sheetLoading, setSheetLoading] = useState(false);
   const [sheetError, setSheetError] = useState("");
-  const [dataSource, setDataSource] = useState(SHEET_API_URL ? "구글시트 연결 대기" : "기본 내장 단어");
+  const [dataSource, setDataSource] = useState("로딩 중...");
   const [mode, setMode] = useState("list");
-  const [selectedSections, setSelectedSections] = useState(new Set(getSections(DEFAULT_TABS[0].words)));
+  const [selectedSections, setSelectedSections] = useState(new Set());
   const [hideMode, setHideMode] = useState("none");
-  const [starred, setStarred] = useState(new Set());
+  const [starred, setStarred] = useState(() => {
+    try {
+      const saved = localStorage.getItem("vocab-starred");
+      return saved ? new Set(JSON.parse(saved)) : new Set();
+    } catch { return new Set(); }
+  });
   const [filterStarred, setFilterStarred] = useState(false);
   const [showPrint, setShowPrint] = useState(false);
   const [cardIdx, setCardIdx] = useState(0);
   const [flipped, setFlipped] = useState(false);
   const [cardDeck, setCardDeck] = useState([]);
-  const [cardSections, setCardSections] = useState(new Set(getSections(DEFAULT_TABS[0].words)));
+  const [cardSections, setCardSections] = useState(new Set());
   const [testWords, setTestWords] = useState([]);
   const [testAnswers, setTestAnswers] = useState({});
   const [testSubmitted, setTestSubmitted] = useState(false);
@@ -495,12 +495,17 @@ export default function VocabApp() {
 
   const allSections = useMemo(() => getSections(allWords), [allWords]);
 
+  // ⭐ 즐겨찾기 localStorage 자동 저장
+  useEffect(() => {
+    try { localStorage.setItem("vocab-starred", JSON.stringify([...starred])); } catch {}
+  }, [starred]);
+
   const resetWordState = (words) => {
     const secs = new Set(getSections(words));
     setAllWords(words);
     setSelectedSections(secs);
     setCardSections(secs);
-    setStarred(new Set());
+    // starred는 초기화하지 않음 — localStorage에서 유지됨
     setFilterStarred(false);
     setCardDeck([]);
     setCardIdx(0);
@@ -511,10 +516,14 @@ export default function VocabApp() {
   };
 
   const applyTabs = (newTabs, sourceLabel) => {
-    const validTabs = newTabs.length > 0 ? newTabs : DEFAULT_TABS;
-    setTabs(validTabs);
+    if (newTabs.length === 0) {
+      setSheetError("단어 데이터가 없습니다. 구글시트를 확인해주세요.");
+      setDataSource("연결 실패");
+      return;
+    }
+    setTabs(newTabs);
     setActiveTabIdx(0);
-    resetWordState(validTabs[0].words);
+    resetWordState(newTabs[0].words);
     setDataSource(sourceLabel);
   };
 
@@ -553,8 +562,8 @@ export default function VocabApp() {
       }
     } catch (error) {
       console.error(error);
-      setSheetError("구글시트 데이터를 불러오지 못해 기본 내장 단어를 표시합니다.");
-      applyTabs(DEFAULT_TABS, "기본 내장 단어");
+      setSheetError("구글시트 데이터를 불러오지 못했습니다. '시트 새로고침'을 눌러 다시 시도해주세요.");
+      setDataSource("연결 실패");
     } finally {
       setSheetLoading(false);
     }
@@ -821,7 +830,14 @@ export default function VocabApp() {
                 </div>
               );
             })}
-            {filteredWords.length === 0 && <div style={{ textAlign: "center", padding: 60, color: "#a0978a" }}>{filterStarred ? "즐겨찾기한 단어가 없습니다." : "범위를 선택해주세요."}</div>}
+            {filteredWords.length === 0 && (
+              <div style={{ textAlign: "center", padding: 60, color: "#a0978a" }}>
+                {filterStarred ? "즐겨찾기한 단어가 없습니다."
+                  : allWords.length === 0
+                    ? (sheetLoading ? "구글시트에서 단어를 불러오는 중..." : "상단의 '시트 새로고침' 버튼을 눌러 단어를 불러오세요.")
+                    : "범위를 선택해주세요."}
+              </div>
+            )}
           </div>
         )}
 
