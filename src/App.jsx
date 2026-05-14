@@ -694,8 +694,8 @@ export default function VocabApp() {
         .pill{padding:8px 14px;border:1px solid #d8dee8;background:#fff;color:#657083;border-radius:999px;cursor:pointer;font-size:12px;font-family:var(--font-sans);font-weight:600;transition:all 0.16s ease;white-space:nowrap;box-shadow:0 1px 2px rgba(23,32,51,0.04)}
         .pill:hover{border-color:#2f7f7a;color:#2f7f7a;transform:translateY(-1px)}
         .pill.active{border-color:#172033;background:#172033;color:#fff;box-shadow:0 8px 22px rgba(23,32,51,0.16)}
-        .tab-btn{padding:12px 18px;border:none;background:transparent;color:#657083;font-size:14px;font-weight:700;cursor:pointer;border-bottom:3px solid transparent;transition:all 0.2s;font-family:var(--font-sans)}
-        .tab-btn:hover{color:#172033;background:#f6f8fb}
+        .tab-btn{padding:13px 18px;border:none;background:transparent;color:#657083;font-size:14px;font-weight:700;cursor:pointer;border-bottom:3px solid transparent;transition:all 0.2s;font-family:var(--font-sans);position:relative}
+        .tab-btn:hover{color:#172033;background:rgba(47,127,122,0.05)}
         .tab-btn.active{color:#172033;border-bottom-color:#2f7f7a;background:#fff}
         .vocab-row{display:grid;grid-template-columns:40px minmax(0,1.1fr) minmax(0,1fr);align-items:center;padding:13px 18px;border-bottom:1px solid #edf0f5;transition:background 0.12s,transform 0.12s;gap:12px}
         .vocab-row:hover{background:#f7fbfb}
@@ -728,15 +728,19 @@ export default function VocabApp() {
         .drop-zone:hover{border-color:#2f7f7a;background:#f2faf9}
         .section-card{background:#fff;border:1px solid #dfe5ee;border-radius:16px;overflow:hidden;box-shadow:0 10px 26px rgba(23,32,51,0.05)}
         .section-title{font-size:12px;font-weight:800;color:#2f7f7a;padding:10px 18px;background:#f2faf9;border-bottom:1px solid #d5e8e5;letter-spacing:1px}
-        .mode-strip{display:flex;gap:4px;border:1px solid #e4e9f1;border-radius:14px;margin-bottom:16px;background:#f8fafc;padding:4px;overflow-x:auto}
+        .exam-tabs{display:flex;gap:0;overflow-x:auto;overflow-y:hidden;padding-top:16px;flex-wrap:nowrap}
+        .exam-tab{padding:9px 18px;border:1px solid #d8dee8;border-bottom:none;background:#f6f8fb;color:#657083;border-radius:10px 10px 0 0;cursor:pointer;font-size:13px;font-weight:500;font-family:var(--font-sans);white-space:nowrap;transition:all 0.15s;margin-right:2px;position:relative}
+        .exam-tab.active{border-color:#2f7f7a;background:#fff;color:#172033;font-weight:800;z-index:2}
+        .mode-strip{display:flex;gap:0;border:1px solid #d8dee8;border-top-color:#2f7f7a;margin-bottom:16px;background:#fff;overflow-x:auto;border-radius:0 0 14px 14px;box-shadow:0 8px 18px rgba(23,32,51,0.03)}
         @media(max-width:700px){
           .app-frame{padding:18px 12px 0}
           .header-panel{border-radius:18px;padding:20px 16px 0}
           .header-panel .brand-logo{width:92px!important;height:56px!important}
+          .exam-tab{padding:9px 14px}
           .vocab-row{grid-template-columns:34px minmax(0,1fr);padding:12px 14px;font-size:13px}
           .vocab-row span:last-child{grid-column:2;color:#657083}
           .card-container{height:240px}
-          .mode-strip{margin-inline:-4px}
+          .mode-strip{margin-inline:0}
         }
       `}</style>
 
@@ -771,31 +775,14 @@ export default function VocabApp() {
         <div style={{ width: "100%", height: 1, background: "linear-gradient(90deg, #2f7f7a, #d8dee8, transparent)", margin: "20px 0 0" }} />
 
         {/* 단어 탭 */}
-        <div style={{ display: "flex", gap: 0, overflowX: "auto", overflowY: "hidden", paddingTop: 16, flexWrap: "nowrap" }}>
+        <div className="exam-tabs">
           {tabs.map((tab, idx) => (
-            <button key={idx} onClick={() => switchTab(idx)} style={{
-              padding: "8px 18px",
-              border: `1px solid ${idx === activeTabIdx ? "#2f7f7a" : "#d8dee8"}`,
-              borderBottom: idx === activeTabIdx ? "2px solid #fff" : "1px solid #d8dee8",
-              background: idx === activeTabIdx ? "#fff" : "#f6f8fb",
-              color: idx === activeTabIdx ? "#172033" : "#657083",
-              borderRadius: "8px 8px 0 0",
-              cursor: "pointer",
-              fontSize: 13,
-              fontWeight: idx === activeTabIdx ? 600 : 400,
-              fontFamily: "'Noto Sans KR'",
-              whiteSpace: "nowrap",
-              transition: "all 0.15s",
-              marginRight: 2,
-              position: "relative",
-              bottom: -1,
-            }}>
+            <button key={idx} onClick={() => switchTab(idx)} className={`exam-tab ${idx === activeTabIdx ? "active" : ""}`}>
               {tab.name}
               <span style={{ marginLeft: 5, fontSize: 11, opacity: 0.6 }}>({tab.words.length})</span>
             </button>
           ))}
         </div>
-        <div style={{ borderBottom: "1px solid #d8dee8", marginBottom: 0 }} />
 
         {/* 모드 탭 */}
         <div className="mode-strip">
