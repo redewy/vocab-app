@@ -288,34 +288,25 @@ function LoginScreen({ onLogin }) {
   };
 
   return (
-    <div style={{
-      minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center",
-      background: "linear-gradient(145deg, #faf9f6 0%, #f0ede6 100%)",
-      fontFamily: "'Noto Sans KR', sans-serif",
-    }}>
-      <div style={{ textAlign: "center", animation: shake ? "shakeX 0.5s" : "fadeUp 0.6s ease-out" }}>
-        <div style={{ fontSize: 11, letterSpacing: 6, color: "#a0978a", marginBottom: 12, textTransform: "uppercase" }}>
-          원포원 영어학원 내신 단어장
-        </div>
-        <h1 style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 42, fontWeight: 700, color: "#2c2824", marginBottom: 8, letterSpacing: -1 }}>
-          VOCABULARY
-        </h1>
-        <div style={{ width: 40, height: 2, background: "#c4a46c", margin: "0 auto 32px" }} />
-        <p style={{ fontSize: 14, color: "#8a8278", marginBottom: 28 }}>학원에서 배부한 코드를 입력하세요</p>
+    <div className="login-shell">
+      <div className="login-card" style={{ animation: shake ? "shakeX 0.5s" : "fadeUp 0.6s ease-out" }}>
+        <img className="brand-logo" src="/oneforone-logo.jpeg" alt="원포원영어학원" style={{ width: 210, margin: "0 auto 22px" }} />
+        <div style={{ width: 44, height: 3, background: "#214f2d", borderRadius: 999, margin: "0 auto 24px" }} />
+        <p style={{ fontSize: 14, color: "#657083", marginBottom: 28 }}>학원에서 배부한 코드를 입력하세요</p>
         <div style={{ display: "flex", gap: 8, justifyContent: "center", maxWidth: 340, margin: "0 auto" }}>
           <input type="password" value={code}
             onChange={e => { setCode(e.target.value); setError(false); }}
             onKeyDown={e => e.key === "Enter" && handleSubmit()}
             placeholder="접속 코드"
             style={{
-              flex: 1, padding: "12px 16px", border: `1.5px solid ${error ? "#d4644a" : "#d4cfc6"}`,
-              borderRadius: 8, fontSize: 15, outline: "none", background: "#fff", color: "#2c2824",
-              fontFamily: "'JetBrains Mono', monospace",
+              flex: 1, minWidth: 0, padding: "12px 16px", border: `1.5px solid ${error ? "#d4644a" : "#d8dee8"}`,
+              borderRadius: 10, fontSize: 15, outline: "none", background: "#fff", color: "#172033",
+              fontFamily: "var(--font-mono)",
             }}
           />
           <button onClick={handleSubmit} style={{
-            padding: "12px 24px", border: "none", borderRadius: 8, background: "#2c2824",
-            color: "#faf9f6", fontSize: 14, fontWeight: 600, cursor: "pointer", fontFamily: "'Noto Sans KR'",
+            padding: "12px 24px", border: "none", borderRadius: 10, background: "#172033",
+            color: "#ffffff", fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: "var(--font-sans)", minWidth: 72, whiteSpace: "nowrap",
           }}>입장</button>
         </div>
         {error && <p style={{ color: "#d4644a", fontSize: 13, marginTop: 12 }}>코드가 올바르지 않습니다.</p>}
@@ -688,55 +679,78 @@ export default function VocabApp() {
   if (showPrint) return <PrintView tabs={tabs} activeTabIdx={activeTabIdx} onClose={() => setShowPrint(false)} />;
 
   return (
-    <div style={{ minHeight: "100vh", background: "linear-gradient(160deg, #faf9f6 0%, #f4f1eb 50%, #ebe7df 100%)", fontFamily: "'Noto Sans KR', sans-serif" }}>
+    <div className="app-shell">
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Noto+Sans+KR:wght@300;400;500;700&family=Playfair+Display:wght@600;700&display=swap');
-        *{box-sizing:border-box;margin:0;padding:0}
+        @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Noto+Sans+KR:wght@300;400;500;700;800&display=swap');
+        *{box-sizing:border-box}
         @keyframes fadeUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
         @keyframes shakeX{0%,100%{transform:translateX(0)}20%{transform:translateX(-8px)}40%{transform:translateX(8px)}60%{transform:translateX(-4px)}80%{transform:translateX(4px)}}
-        .pill{padding:7px 14px;border:1px solid #d4cfc6;background:#fff;color:#8a8278;border-radius:20px;cursor:pointer;font-size:12px;font-family:'Noto Sans KR';transition:all 0.15s;white-space:nowrap}
-        .pill:hover{border-color:#c4a46c;color:#c4a46c}
-        .pill.active{border-color:#2c2824;background:#2c2824;color:#faf9f6}
-        .tab-btn{padding:10px 20px;border:none;background:transparent;color:#a0978a;font-size:14px;font-weight:500;cursor:pointer;border-bottom:2px solid transparent;transition:all 0.2s;font-family:'Noto Sans KR'}
-        .tab-btn:hover{color:#2c2824}
-        .tab-btn.active{color:#2c2824;border-bottom-color:#c4a46c}
-        .vocab-row{display:grid;grid-template-columns:36px 1.2fr 1fr;align-items:center;padding:11px 16px;border-bottom:1px solid #ebe7df;transition:background 0.12s;gap:8px}
-        .vocab-row:hover{background:rgba(196,164,108,0.06)}
-        .star-btn{background:none;border:none;cursor:pointer;font-size:16px;transition:transform 0.15s}
-        .star-btn:hover{transform:scale(1.25)}
+        .app-shell{min-height:100vh;background:linear-gradient(145deg,#fbfcff 0%,#eef3f8 48%,#f7f4ec 100%);font-family:var(--font-sans)}
+        .login-shell{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;background:linear-gradient(145deg,#fbfcff 0%,#edf3f8 52%,#f7f4ec 100%);font-family:var(--font-sans)}
+        .login-card{width:min(420px,100%);text-align:center;background:rgba(255,255,255,0.82);border:1px solid rgba(216,222,232,0.9);border-radius:18px;padding:42px 28px;box-shadow:0 24px 60px rgba(23,32,51,0.12),0 2px 12px rgba(23,32,51,0.05);backdrop-filter:blur(16px)}
+        .app-frame{max-width:900px;margin:0 auto;padding:32px 20px 0}
+        .surface{background:rgba(255,255,255,0.78);border:1px solid rgba(216,222,232,0.95);box-shadow:0 18px 46px rgba(23,32,51,0.08);backdrop-filter:blur(14px)}
+        .header-panel{border-radius:22px;padding:24px 24px 0;overflow:hidden}
+        .pill{padding:8px 14px;border:1px solid #d8dee8;background:#fff;color:#657083;border-radius:999px;cursor:pointer;font-size:12px;font-family:var(--font-sans);font-weight:600;transition:all 0.16s ease;white-space:nowrap;box-shadow:0 1px 2px rgba(23,32,51,0.04)}
+        .pill:hover{border-color:#2f7f7a;color:#2f7f7a;transform:translateY(-1px)}
+        .pill.active{border-color:#172033;background:#172033;color:#fff;box-shadow:0 8px 22px rgba(23,32,51,0.16)}
+        .tab-btn{padding:12px 18px;border:none;background:transparent;color:#657083;font-size:14px;font-weight:700;cursor:pointer;border-bottom:3px solid transparent;transition:all 0.2s;font-family:var(--font-sans)}
+        .tab-btn:hover{color:#172033;background:#f6f8fb}
+        .tab-btn.active{color:#172033;border-bottom-color:#2f7f7a;background:#fff}
+        .vocab-row{display:grid;grid-template-columns:40px minmax(0,1.1fr) minmax(0,1fr);align-items:center;padding:13px 18px;border-bottom:1px solid #edf0f5;transition:background 0.12s,transform 0.12s;gap:12px}
+        .vocab-row:hover{background:#f7fbfb}
+        .vocab-row span{min-width:0;overflow-wrap:anywhere}
+        .star-btn{background:#f6f8fb;border:1px solid transparent;border-radius:999px;width:28px;height:28px;cursor:pointer;font-size:15px;transition:transform 0.15s,border-color 0.15s,background 0.15s;display:flex;align-items:center;justify-content:center}
+        .star-btn:hover{transform:scale(1.08);border-color:#d8dee8;background:#fff}
         .blur-text{filter:blur(5px);transition:filter 0.15s;user-select:none;cursor:pointer}
         .blur-text:hover{filter:blur(0)}
-        .card-container{perspective:900px;width:100%;max-width:420px;height:260px;margin:0 auto;cursor:pointer}
+        .card-container{perspective:900px;width:100%;max-width:460px;height:280px;margin:0 auto;cursor:pointer}
         .card-inner{position:relative;width:100%;height:100%;transition:transform 0.5s cubic-bezier(0.4,0,0.2,1);transform-style:preserve-3d}
         .card-inner.flipped{transform:rotateY(180deg)}
-        .card-face{position:absolute;width:100%;height:100%;backface-visibility:hidden;border-radius:14px;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:28px}
-        .card-front{background:#fff;border:1px solid #e5e2dc;box-shadow:0 4px 24px rgba(44,40,36,0.06)}
-        .card-back{background:#2c2824;transform:rotateY(180deg);color:#faf9f6}
-        .test-input{background:#fff;border:1.5px solid #d4cfc6;color:#2c2824;padding:10px 14px;border-radius:8px;font-family:'JetBrains Mono',monospace;font-size:14px;width:100%;max-width:220px;outline:none;transition:border-color 0.2s}
-        .test-input:focus{border-color:#c4a46c}
+        .card-face{position:absolute;width:100%;height:100%;backface-visibility:hidden;border-radius:20px;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:32px}
+        .card-front{background:#fff;border:1px solid #d8dee8;box-shadow:0 20px 48px rgba(23,32,51,0.1)}
+        .card-back{background:linear-gradient(145deg,#172033,#2f4e68);transform:rotateY(180deg);color:#fff}
+        .test-input{background:#fff;border:1.5px solid #d8dee8;color:#172033;padding:11px 14px;border-radius:10px;font-family:var(--font-mono);font-size:14px;width:100%;max-width:240px;outline:none;transition:border-color 0.2s,box-shadow 0.2s}
+        .test-input:focus{border-color:#2f7f7a;box-shadow:0 0 0 4px rgba(47,127,122,0.12)}
         .test-input.correct{border-color:#5a9a6a;background:#f0f7f2}
         .test-input.wrong{border-color:#d4644a;background:#fdf5f3}
-        .action-btn{padding:10px 22px;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;font-family:'Noto Sans KR';transition:all 0.2s}
-        .action-btn.primary{background:#2c2824;color:#faf9f6}
-        .action-btn.primary:hover{background:#3d3630}
-        .action-btn.secondary{background:#e5e2dc;color:#5a554d}
-        .action-btn.secondary:hover{background:#d4cfc6}
-        .nav-circle{width:40px;height:40px;border-radius:50%;border:1px solid #d4cfc6;background:#fff;color:#8a8278;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all 0.15s}
-        .nav-circle:hover{border-color:#c4a46c;color:#c4a46c}
+        .action-btn{padding:11px 22px;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;font-family:var(--font-sans);transition:all 0.2s}
+        .action-btn.primary{background:#172033;color:#fff;box-shadow:0 12px 26px rgba(23,32,51,0.18)}
+        .action-btn.primary:hover{background:#26334b;transform:translateY(-1px)}
+        .action-btn.secondary{background:#e9eef5;color:#344153}
+        .action-btn.secondary:hover{background:#dfe7f0}
+        .nav-circle{width:42px;height:42px;border-radius:50%;border:1px solid #d8dee8;background:#fff;color:#657083;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all 0.15s}
+        .nav-circle:hover{border-color:#2f7f7a;color:#2f7f7a;transform:translateY(-1px)}
         .nav-circle:disabled{opacity:0.3;cursor:not-allowed}
-        .modal-overlay{position:fixed;inset:0;background:rgba(44,40,36,0.3);z-index:100;display:flex;align-items:center;justify-content:center}
-        .modal-box{background:#fff;border-radius:16px;padding:28px;max-width:500px;width:90%;max-height:80vh;overflow:auto;box-shadow:0 16px 48px rgba(44,40,36,0.15)}
-        .drop-zone{border:2px dashed #d4cfc6;border-radius:12px;padding:40px 20px;text-align:center;cursor:pointer;transition:all 0.2s;background:#faf9f6}
-        .drop-zone:hover{border-color:#c4a46c;background:#f8f5ef}
-        @media(max-width:600px){.vocab-row{grid-template-columns:32px 1fr 1fr;padding:10px 12px;font-size:13px}}
+        .modal-overlay{position:fixed;inset:0;background:rgba(23,32,51,0.36);z-index:100;display:flex;align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(6px)}
+        .modal-box{background:#fff;border-radius:20px;padding:28px;max-width:520px;width:100%;max-height:80vh;overflow:auto;box-shadow:0 24px 72px rgba(23,32,51,0.22)}
+        .drop-zone{border:2px dashed #cbd5e1;border-radius:16px;padding:42px 20px;text-align:center;cursor:pointer;transition:all 0.2s;background:#f8fafc}
+        .drop-zone:hover{border-color:#2f7f7a;background:#f2faf9}
+        .section-card{background:#fff;border:1px solid #dfe5ee;border-radius:16px;overflow:hidden;box-shadow:0 10px 26px rgba(23,32,51,0.05)}
+        .section-title{font-size:12px;font-weight:800;color:#2f7f7a;padding:10px 18px;background:#f2faf9;border-bottom:1px solid #d5e8e5;letter-spacing:1px}
+        .mode-strip{display:flex;gap:4px;border:1px solid #e4e9f1;border-radius:14px;margin-bottom:16px;background:#f8fafc;padding:4px;overflow-x:auto}
+        @media(max-width:700px){
+          .app-frame{padding:18px 12px 0}
+          .header-panel{border-radius:18px;padding:20px 16px 0}
+          .header-panel .brand-logo{width:92px!important;height:56px!important}
+          .vocab-row{grid-template-columns:34px minmax(0,1fr);padding:12px 14px;font-size:13px}
+          .vocab-row span:last-child{grid-column:2;color:#657083}
+          .card-container{height:240px}
+          .mode-strip{margin-inline:-4px}
+        }
       `}</style>
 
       {/* Header */}
-      <div style={{ maxWidth: 780, margin: "0 auto", padding: "36px 20px 0" }}>
+      <div className="app-frame">
+        <div className="surface header-panel">
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 12 }}>
-          <div>
-            <div style={{ fontSize: 11, letterSpacing: 5, color: "#a0978a", marginBottom: 6, textTransform: "uppercase" }}>vocabulary</div>
-            <h1 style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 24, fontWeight: 700, color: "#2c2824", letterSpacing: -0.5 }}>원포원영어학원</h1>
+          <div style={{ display: "flex", alignItems: "center", gap: 16, minWidth: 0 }}>
+            <img className="brand-logo" src="/oneforone-logo.jpeg" alt="원포원영어학원" style={{ width: 118, height: 72, flex: "0 0 auto" }} />
+            <div style={{ minWidth: 0 }}>
+              <div style={{ fontSize: 11, letterSpacing: 4, color: "#657083", marginBottom: 6, textTransform: "uppercase" }}>vocabulary</div>
+              <h1 style={{ fontFamily: "var(--font-sans)", fontSize: 28, fontWeight: 800, color: "#214f2d", letterSpacing: 0, margin: 0 }}>원포원영어학원</h1>
+              <p style={{ fontSize: 13, color: "#657083", marginTop: 6 }}>함께 걷는 영어, 원포원이 응원합니다</p>
+            </div>
           </div>
           <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
             {SHEET_API_URL && <button onClick={loadSheetWords} disabled={sheetLoading} className="pill">{sheetLoading ? "불러오는 중..." : "🔄 시트 새로고침"}</button>}
@@ -750,21 +764,21 @@ export default function VocabApp() {
             <button onClick={() => setUploadMsg("")} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 16, color: "inherit" }}>✕</button>
           </div>
         )}
-        <div style={{ marginTop: 12, padding: "9px 14px", borderRadius: 8, background: sheetError ? "#fdf5f3" : "rgba(196,164,108,0.08)", color: sheetError ? "#d4644a" : "#8a8278", fontSize: 12, display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
+        <div style={{ marginTop: 14, padding: "10px 14px", borderRadius: 12, background: sheetError ? "#fdf5f3" : "#f2faf9", color: sheetError ? "#d4644a" : "#456260", fontSize: 12, display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center", flexWrap: "wrap", border: `1px solid ${sheetError ? "#f4c7bd" : "#d5e8e5"}` }}>
           <span>데이터: {sheetLoading ? "구글시트 불러오는 중..." : dataSource}</span>
           {sheetError && <span>{sheetError}</span>}
         </div>
-        <div style={{ width: "100%", height: 1, background: "linear-gradient(90deg, #c4a46c, #d4cfc6, transparent)", margin: "20px 0 0" }} />
+        <div style={{ width: "100%", height: 1, background: "linear-gradient(90deg, #2f7f7a, #d8dee8, transparent)", margin: "20px 0 0" }} />
 
         {/* 단어 탭 */}
-        <div style={{ display: "flex", gap: 0, overflowX: "auto", paddingTop: 16, flexWrap: "nowrap" }}>
+        <div style={{ display: "flex", gap: 0, overflowX: "auto", overflowY: "hidden", paddingTop: 16, flexWrap: "nowrap" }}>
           {tabs.map((tab, idx) => (
             <button key={idx} onClick={() => switchTab(idx)} style={{
               padding: "8px 18px",
-              border: `1px solid ${idx === activeTabIdx ? "#c4a46c" : "#d4cfc6"}`,
-              borderBottom: idx === activeTabIdx ? "2px solid #fff" : "1px solid #d4cfc6",
-              background: idx === activeTabIdx ? "#fff" : "#f4f1eb",
-              color: idx === activeTabIdx ? "#2c2824" : "#8a8278",
+              border: `1px solid ${idx === activeTabIdx ? "#2f7f7a" : "#d8dee8"}`,
+              borderBottom: idx === activeTabIdx ? "2px solid #fff" : "1px solid #d8dee8",
+              background: idx === activeTabIdx ? "#fff" : "#f6f8fb",
+              color: idx === activeTabIdx ? "#172033" : "#657083",
               borderRadius: "8px 8px 0 0",
               cursor: "pointer",
               fontSize: 13,
@@ -781,10 +795,10 @@ export default function VocabApp() {
             </button>
           ))}
         </div>
-        <div style={{ borderBottom: "1px solid #d4cfc6", marginBottom: 0 }} />
+        <div style={{ borderBottom: "1px solid #d8dee8", marginBottom: 0 }} />
 
         {/* 모드 탭 */}
-        <div style={{ display: "flex", gap: 4, borderBottom: "1px solid #e5e2dc", marginBottom: 16, background: "#fff", padding: "0 4px", overflowX: "auto" }}>
+        <div className="mode-strip">
           {[["list","📋 목록"],["card","🃏 카드"],["cardtest","📸 카드테스트"],["test","✏️ 테스트"]].map(([k,l]) => (
             <button key={k} className={`tab-btn ${mode===k?"active":""}`}
               onClick={() => { setMode(k); if(k==="card") startCards(); if(k==="test") startTest(); }}
@@ -801,13 +815,14 @@ export default function VocabApp() {
               <button className={`pill ${hideMode==="meaning"?"active":""}`} onClick={() => setHideMode(hideMode==="meaning"?"none":"meaning")}>뜻 가리기</button>
               <button className={`pill ${hideMode==="word"?"active":""}`} onClick={() => setHideMode(hideMode==="word"?"none":"word")}>단어 가리기</button>
               <button className={`pill ${filterStarred?"active":""}`} onClick={() => setFilterStarred(!filterStarred)}>⭐ {starred.size}</button>
-              <span style={{ marginLeft: "auto", fontSize: 12, color: "#a0978a" }}>{filteredWords.length}개</span>
+              <span style={{ marginLeft: "auto", fontSize: 12, color: "#657083", fontWeight: 700 }}>{filteredWords.length}개</span>
             </div>
           </>
         )}
+        </div>
       </div>
 
-      <div style={{ maxWidth: 780, margin: "0 auto", padding: "0 20px 48px" }}>
+      <div style={{ maxWidth: 900, margin: "0 auto", padding: "18px 20px 48px" }}>
 
         {/* LIST */}
         {mode === "list" && (
@@ -816,14 +831,14 @@ export default function VocabApp() {
               const secWords = filteredWords.filter(w => w.s === sec);
               if (!secWords.length) return null;
               return (
-                <div key={sec} style={{ marginBottom: 20 }}>
-                  <div style={{ fontSize: 12, fontWeight: 700, color: "#c4a46c", padding: "8px 16px", background: "rgba(196,164,108,0.08)", borderRadius: "10px 10px 0 0", borderBottom: "1.5px solid #c4a46c", letterSpacing: 1 }}>#{sec}번</div>
-                  <div style={{ background: "#fff", border: "1px solid #e5e2dc", borderTop: "none", borderRadius: "0 0 10px 10px", overflow: "hidden" }}>
+                <div key={sec} className="section-card" style={{ marginBottom: 18 }}>
+                  <div className="section-title">#{sec}번</div>
+                  <div style={{ background: "#fff", overflow: "hidden" }}>
                     {secWords.map((w, i) => (
                       <div className="vocab-row" key={`${sec}-${i}`}>
                         <button className="star-btn" onClick={() => toggleStar(w.w)}>{starred.has(w.w) ? "⭐" : <span style={{ color: "#c4a46c" }}>☆</span>}</button>
-                        <span className={hideMode==="word"?"blur-text":""} style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 14, fontWeight: 500, color: "#2c2824" }}>{w.w}</span>
-                        <span className={hideMode==="meaning"?"blur-text":""} style={{ fontSize: 13, color: "#6b655c" }}>{w.m}</span>
+                        <span className={hideMode==="word"?"blur-text":""} style={{ fontFamily: "var(--font-mono)", fontSize: 14, fontWeight: 600, color: "#172033" }}>{w.w}</span>
+                        <span className={hideMode==="meaning"?"blur-text":""} style={{ fontSize: 13, color: "#4f5b6b" }}>{w.m}</span>
                       </div>
                     ))}
                   </div>
