@@ -483,6 +483,7 @@ export default function VocabApp() {
   const [showUpload, setShowUpload] = useState(false);
   const [uploadMsg, setUploadMsg] = useState("");
   const fileRef = useRef(null);
+  const swipeRef = useRef(null);
 
   const allSections = useMemo(() => getSections(allWords), [allWords]);
 
@@ -577,17 +578,19 @@ export default function VocabApp() {
   const toggleSection = (s) => setSelectedSections(prev => { const n = new Set(prev); n.has(s)?n.delete(s):n.add(s); return n; });
   const toggleCardSection = (s) => setCardSections(prev => { const n = new Set(prev); n.has(s)?n.delete(s):n.add(s); return n; });
 
-  const buildCardDeck = (words) => {
-    const deck = shuffle(words);
+  const [cardShuffle, setCardShuffle] = useState(true);
+
+  const buildCardDeck = (words, doShuffle = cardShuffle) => {
+    const deck = doShuffle ? shuffle(words) : [...words];
     setCardDeck(deck);
     setCardIdx(0);
     setFlipped(false);
   };
 
-  const startCards = () => buildCardDeck(cardFilteredWords);
+  const startCards = (doShuffle = cardShuffle) => buildCardDeck(cardFilteredWords, doShuffle);
 
   useEffect(() => {
-    if (mode === "card") buildCardDeck(allWords.filter(x => cardSections.has(x.s)));
+    if (mode === "card") buildCardDeck(allWords.filter(x => cardSections.has(x.s)), cardShuffle);
   }, [cardSections]);
 
   const startTest = (type = "eng") => {
@@ -848,12 +851,35 @@ export default function VocabApp() {
           <div style={{ animation: "fadeUp 0.4s ease-out" }}>
             <SectionChips label="🃏 카드 범위 선택" sections={allSections} allWords={allWords} selected={cardSections}
               onToggle={toggleCardSection} onAll={() => setCardSections(new Set(allSections))} onNone={() => setCardSections(new Set())} />
+            {/* 순서/셔플 토글 */}
+            <div style={{ display: "flex", gap: 8, marginBottom: 20 }}>
+              <button className={`pill ${!cardShuffle?"active":""}`} onClick={() => { setCardShuffle(false); startCards(false); }}>순서대로</button>
+              <button className={`pill ${cardShuffle?"active":""}`} onClick={() => { setCardShuffle(true); startCards(true); }}>🔀 셔플</button>
+            </div>
             {cardDeck.length > 0 ? (
               <>
                 <div style={{ textAlign: "center", marginBottom: 20, color: "#a0978a", fontSize: 13 }}>
-                  {cardIdx + 1} / {cardDeck.length} <span style={{ marginLeft: 8, fontSize: 12 }}>(클릭하여 뒤집기)</span>
+                  {cardIdx + 1} / {cardDeck.length}
                 </div>
-                <div className="card-container" onClick={() => setFlipped(!flipped)}>
+                {/* 스와이프 + 클릭 둘 다 지원 */}
+                <div
+                  className="card-container"
+                  onClick={() => setFlipped(f => !f)}
+                  onTouchStart={(e) => { swipeRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY }; }}
+                  onTouchEnd={(e) => {
+                    const start = swipeRef.current;
+                    if (!start) return;
+                    const dx = e.changedTouches[0].clientX - start.x;
+                    const dy = Math.abs(e.changedTouches[0].clientY - start.y);
+                    swipeRef.current = null;
+                    if (Math.abs(dx) < 10 && dy < 10) return; // 탭은 onClick이 처리
+                    if (Math.abs(dx) > 40 && dy < 60) { // 좌우 스와이프 → 다음/이전
+                      e.preventDefault();
+                      if (dx < 0 && cardIdx < cardDeck.length - 1) { setCardIdx(i => i+1); setFlipped(false); }
+                      if (dx > 0 && cardIdx > 0) { setCardIdx(i => i-1); setFlipped(false); }
+                    }
+                  }}
+                >
                   <div className={`card-inner ${flipped?"flipped":""}`}>
                     <div className="card-face card-front">
                       <div style={{ fontSize: 11, color: "#a0978a", marginBottom: 10, letterSpacing: 3, textTransform: "uppercase" }}>Word</div>
@@ -868,7 +894,6 @@ export default function VocabApp() {
                 </div>
                 <div style={{ display: "flex", justifyContent: "center", gap: 14, marginTop: 28, alignItems: "center" }}>
                   <button className="nav-circle" disabled={cardIdx===0} onClick={() => {setCardIdx(cardIdx-1);setFlipped(false);}}>←</button>
-                  <button className="action-btn secondary" onClick={startCards}>🔀 셔플</button>
                   <button className="nav-circle" disabled={cardIdx>=cardDeck.length-1} onClick={() => {setCardIdx(cardIdx+1);setFlipped(false);}}>→</button>
                 </div>
               </>
