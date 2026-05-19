@@ -976,7 +976,8 @@ export default function VocabApp() {
           </div>
           <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
             {SHEET_API_URL && <button onClick={loadSheetWords} disabled={sheetLoading} className="pill">{sheetLoading ? "불러오는 중..." : "🔄 시트 새로고침"}</button>}
-            <button onClick={() => setShowUpload(true)} className="pill">📥 단어 업로드</button>
+            {/* 단어 업로드 버튼 — 숨김 처리 (기능 유지) */}
+            {false && <button onClick={() => setShowUpload(true)} className="pill">📥 단어 업로드</button>}
             <button onClick={() => setShowPrint(true)} className="pill">🖨 프린트</button>
           </div>
         </div>
@@ -1004,7 +1005,7 @@ export default function VocabApp() {
 
         {/* 모드 탭 */}
         <div className="mode-strip">
-          {[["list","📋 목록"],["card","🃏 카드"],["cardtest","📸 카드테스트"],["test","✏️ 테스트"]].map(([k,l]) => (
+          {[["list","📖 단어장"],["card","🃏 카드 학습"],["test","🎯 단어퀴즈"],["cardtest","⚡ 깜빡이테스트"]].map(([k,l]) => (
             <button key={k} className={`tab-btn ${mode===k?"active":""}`}
               onClick={() => { setMode(k); if(k==="card") startCards(); }}
               style={{ whiteSpace: "nowrap" }}
