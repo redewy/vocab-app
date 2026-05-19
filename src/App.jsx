@@ -36,15 +36,22 @@ const SHEET_API_URL = import.meta.env?.VITE_SHEET_API_URL || "";
 function normalizeSheetWords(data) {
   if (!Array.isArray(data)) return [];
 
+  const str = (v) => (v == null ? "" : String(v).trim());
+
   return data
     .map((item) => {
-      const section = item.s ?? item.section ?? item.no ?? item["번호"] ?? item["범위"] ?? 1;
-      const word = item.w ?? item.word ?? item.WORD ?? item["단어"] ?? item["영어"] ?? "";
-      const meaning = item.m ?? item.meaning ?? item.MEANING ?? item["뜻"] ?? item["의미"] ?? item["한국어"] ?? "";
+      const section = item.s ?? item.section ?? item.no ?? item["지문번호"] ?? item["번호"] ?? item["범위"] ?? 1;
+      const word    = item.w ?? item.word ?? item.WORD ?? item["영단어"] ?? item["단어"] ?? item["영어"] ?? "";
+      const meaning = item.m ?? item.meaning ?? item.MEANING ?? item["한글뜻"] ?? item["뜻"] ?? item["의미"] ?? item["한국어"] ?? "";
+      // 오답 보기 (스프레드시트 컬럼에서 직접 가져옴)
+      const ew = [item["영어오답1"], item["영어오답2"], item["영어오답3"], item["영어오답4"]].map(str).filter(Boolean);
+      const kw = [item["한글오답1"], item["한글오답2"], item["한글오답3"], item["한글오답4"]].map(str).filter(Boolean);
       return {
-        s: isNaN(Number(section)) ? String(section).trim() : Number(section),
-        w: String(word).trim(),
-        m: String(meaning).trim(),
+        s: isNaN(Number(section)) ? str(section) : Number(section),
+        w: str(word),
+        m: str(meaning),
+        ew, // 영어 오답 보기 (뜻→영단어 문제용)
+        kw, // 한글 오답 보기 (영단어→뜻 문제용)
       };
     })
     .filter((item) => item.w && item.m);
@@ -103,6 +110,231 @@ function playShutter() {
     click(now + 0.08, 3000, 0.7, 1.4, 0.005);
     click(now + 0.084, 1100, 1.5, 0.5, 0.022);
   } catch (_) {}
+}
+
+function playCorrect() {
+  try {
+    const ctx = getAudioCtx();
+    const now = ctx.currentTime;
+    // 밝은 두 음: C5 → E5 (정답 딩동)
+    [[523.25, 0], [659.25, 0.12]].forEach(([freq, t]) => {
+      const osc = ctx.createOscillator();
+      const g   = ctx.createGain();
+      osc.type = "sine"; osc.frequency.value = freq;
+      g.gain.setValueAtTime(0.4, now + t);
+      g.gain.exponentialRampToValueAtTime(0.001, now + t + 0.25);
+      osc.connect(g); g.connect(ctx.destination);
+      osc.start(now + t); osc.stop(now + t + 0.3);
+    });
+  } catch (_) {}
+}
+
+function playWrong() {
+  try {
+    const ctx = getAudioCtx();
+    const now = ctx.currentTime;
+    // 낮고 짧은 버저음: 두 번 (오답 삐-삐)
+    [0, 0.14].forEach(t => {
+      const osc = ctx.createOscillator();
+      const g   = ctx.createGain();
+      osc.type = "sawtooth"; osc.frequency.value = 180;
+      g.gain.setValueAtTime(0.3, now + t);
+      g.gain.exponentialRampToValueAtTime(0.001, now + t + 0.1);
+      osc.connect(g); g.connect(ctx.destination);
+      osc.start(now + t); osc.stop(now + t + 0.12);
+    });
+  } catch (_) {}
+}
+
+/* ───────────────── MCQ TEST (객관식 4지선다) ───────────────── */
+function MCQTest({ allWords, allSections }) {
+  const [testSections, setTestSections] = useState(new Set(allSections));
+  const [direction, setDirection]       = useState("kor"); // kor=영단어→뜻, eng=뜻→영단어
+  const [screen, setScreen]             = useState("setup");
+  const [deck, setDeck]                 = useState([]);   // [{word, choices, answerIdx}]
+  const [qIdx, setQIdx]                 = useState(0);
+  const [chosen, setChosen]             = useState(null); // 선택한 보기 인덱스
+  const [score, setScore]               = useState(0);
+  const [wrongList, setWrongList]       = useState([]);
+
+  const filteredWords = useMemo(
+    () => allWords.filter(w => testSections.has(w.s)),
+    [allWords, testSections]
+  );
+
+  const toggleSec = (s) => setTestSections(prev => {
+    const n = new Set(prev); n.has(s) ? n.delete(s) : n.add(s); return n;
+  });
+
+  const buildDeck = (words, dir) => {
+    const shuffled = shuffle(words);
+    return shuffled.map(word => {
+      // 오답 보기: 시트에서 가져온 값 우선, 부족하면 다른 단어에서 랜덤 보충
+      const rawWrong = dir === "kor"
+        ? (word.kw && word.kw.length > 0 ? word.kw : [])
+        : (word.ew && word.ew.length > 0 ? word.ew : []);
+      const fallbackPool = words
+        .filter(w => w.w !== word.w)
+        .map(w => dir === "kor" ? w.m : w.w);
+      const wrongs = [...rawWrong];
+      for (const fb of shuffle(fallbackPool)) {
+        if (wrongs.length >= 3) break;
+        if (!wrongs.includes(fb)) wrongs.push(fb);
+      }
+      const correct = dir === "kor" ? word.m : word.w;
+      const choices = shuffle([correct, ...wrongs.slice(0, 3)]);
+      return { word, choices, answerIdx: choices.indexOf(correct) };
+    });
+  };
+
+  const startTest = (dir = direction) => {
+    if (filteredWords.length < 2) return;
+    setDeck(buildDeck(filteredWords, dir));
+    setQIdx(0); setChosen(null); setScore(0); setWrongList([]);
+    setScreen("quiz");
+  };
+
+  const retryWrong = () => {
+    if (wrongList.length === 0) return;
+    setDeck(buildDeck(wrongList, direction));
+    setQIdx(0); setChosen(null); setScore(0); setWrongList([]);
+    setScreen("quiz");
+  };
+
+  const handleChoice = (idx) => {
+    if (chosen !== null) return; // 이미 선택함
+    setChosen(idx);
+    const correct = idx === deck[qIdx].answerIdx;
+    if (correct) { playCorrect(); setScore(s => s + 1); }
+    else         { playWrong();  setWrongList(wl => [...wl, deck[qIdx].word]); }
+  };
+
+  const next = () => {
+    if (qIdx + 1 < deck.length) { setQIdx(i => i + 1); setChosen(null); }
+    else setScreen("done");
+  };
+
+  /* ── setup ── */
+  if (screen === "setup") {
+    return (
+      <div style={{ animation: "fadeUp 0.4s ease-out" }}>
+        <SectionChips label="✏️ 테스트 범위" sections={allSections} allWords={allWords}
+          selected={testSections} onToggle={toggleSec}
+          onAll={() => setTestSections(new Set(allSections))} onNone={() => setTestSections(new Set())} />
+        <div style={{ marginBottom: 20 }}>
+          <div style={{ fontSize: 11, color: "#a0978a", marginBottom: 8, fontWeight: 500 }}>문제 방향</div>
+          <div style={{ display: "flex", gap: 8 }}>
+            <button className={`pill ${direction==="kor"?"active":""}`}
+              onClick={() => setDirection("kor")}>영단어 → 뜻</button>
+            <button className={`pill ${direction==="eng"?"active":""}`}
+              onClick={() => setDirection("eng")}>뜻 → 영단어</button>
+          </div>
+        </div>
+        <button className="action-btn primary" disabled={filteredWords.length < 2}
+          onClick={() => startTest(direction)}>
+          테스트 시작 ({filteredWords.length}문제)
+        </button>
+      </div>
+    );
+  }
+
+  /* ── done ── */
+  if (screen === "done") {
+    const pct = Math.round(score / deck.length * 100);
+    return (
+      <div style={{ padding: "40px 20px", maxWidth: 500, margin: "0 auto", animation: "fadeUp 0.4s ease-out" }}>
+        <div style={{ textAlign: "center", marginBottom: 32 }}>
+          <div style={{ fontSize: 52, marginBottom: 12 }}>{pct >= 80 ? "🎉" : pct >= 50 ? "🙂" : "😢"}</div>
+          <h2 style={{ fontSize: 22, fontWeight: 700, color: "#2c2824", marginBottom: 6 }}>테스트 완료!</h2>
+          <p style={{ fontSize: 28, fontWeight: 800, color: pct>=80?"#5a9a6a":"#d4644a", marginBottom: 4 }}>
+            {score} <span style={{ fontSize: 16, color: "#a0978a" }}>/ {deck.length}</span>
+          </p>
+          <p style={{ fontSize: 14, color: "#a0978a" }}>정답률 {pct}%</p>
+          <div style={{ display: "flex", gap: 10, justifyContent: "center", marginTop: 24, flexWrap: "wrap" }}>
+            <button className="action-btn primary" onClick={() => startTest(direction)}>🔄 다시 풀기</button>
+            {wrongList.length > 0 &&
+              <button className="action-btn secondary" onClick={retryWrong}>❌ 틀린 것만 ({wrongList.length})</button>}
+            <button className="action-btn secondary" onClick={() => setScreen("setup")}>설정으로</button>
+          </div>
+        </div>
+        {wrongList.length > 0 && (
+          <div style={{ borderTop: "1px solid #e8e3db", paddingTop: 20 }}>
+            <div style={{ fontSize: 11, color: "#a0978a", fontWeight: 600, letterSpacing: 3, marginBottom: 12, textTransform: "uppercase" }}>틀린 단어</div>
+            {wrongList.map((w, i) => (
+              <div key={i} style={{ display: "flex", gap: 12, padding: "7px 0", borderBottom: "1px solid #f0ece5", alignItems: "baseline" }}>
+                <span style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 13, color: "#2c2824", fontWeight: 600, flex: 1 }}>{w.w}</span>
+                <span style={{ fontSize: 13, color: "#6b6259" }}>{w.m}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  /* ── quiz ── */
+  const q = deck[qIdx];
+  const isKor = direction === "kor";
+  return (
+    <div style={{ animation: "fadeUp 0.3s ease-out", maxWidth: 560, margin: "0 auto" }}>
+      {/* 진행 바 */}
+      <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 24 }}>
+        <div style={{ flex: 1, height: 4, background: "#e8e3db", borderRadius: 2, overflow: "hidden" }}>
+          <div style={{ width: `${(qIdx / deck.length) * 100}%`, height: "100%", background: "#c4a46c", transition: "width 0.3s" }} />
+        </div>
+        <span style={{ fontSize: 12, color: "#a0978a", whiteSpace: "nowrap" }}>{qIdx + 1} / {deck.length}</span>
+        <span style={{ fontSize: 12, color: "#5a9a6a", fontWeight: 600 }}>{score}점</span>
+      </div>
+      {/* 문제 */}
+      <div style={{ background: "#fff", borderRadius: 16, padding: "32px 28px", marginBottom: 16, textAlign: "center", boxShadow: "0 2px 12px rgba(44,40,36,0.07)" }}>
+        <div style={{ fontSize: 11, color: "#a0978a", letterSpacing: 3, marginBottom: 12, textTransform: "uppercase" }}>
+          {isKor ? "Word" : "뜻"}
+        </div>
+        <div style={{ fontSize: isKor ? 28 : 20, fontWeight: 700, color: "#2c2824",
+          fontFamily: isKor ? "'JetBrains Mono',monospace" : "inherit", wordBreak: "break-word", lineHeight: 1.4 }}>
+          {isKor ? q.word.w : q.word.m}
+        </div>
+        <div style={{ fontSize: 11, color: "#c4a46c", marginTop: 10 }}>#{q.word.s}번</div>
+      </div>
+      {/* 보기 */}
+      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+        {q.choices.map((choice, i) => {
+          const isCorrect = i === q.answerIdx;
+          const isChosen  = i === chosen;
+          let bg = "#fff", border = "#e5e2dc", color = "#2c2824";
+          if (chosen !== null) {
+            if (isCorrect)      { bg = "#f0f7f2"; border = "#5a9a6a"; color = "#3a7a4a"; }
+            else if (isChosen)  { bg = "#fdf5f3"; border = "#d4644a"; color = "#d4644a"; }
+          }
+          return (
+            <button key={i} onClick={() => handleChoice(i)}
+              style={{ width: "100%", padding: "14px 20px", background: bg, border: `2px solid ${border}`,
+                borderRadius: 12, cursor: chosen !== null ? "default" : "pointer",
+                fontSize: 15, color, fontWeight: isChosen || (chosen !== null && isCorrect) ? 700 : 400,
+                textAlign: "left", transition: "all 0.15s",
+                fontFamily: !isKor ? "'JetBrains Mono',monospace" : "inherit",
+                display: "flex", alignItems: "center", gap: 12 }}>
+              <span style={{ minWidth: 24, height: 24, borderRadius: "50%",
+                background: chosen !== null && isCorrect ? "#5a9a6a" : chosen !== null && isChosen ? "#d4644a" : "#f0ece5",
+                color: chosen !== null && (isCorrect || isChosen) ? "#fff" : "#a0978a",
+                display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 700 }}>
+                {String.fromCharCode(9312 + i) /* ①②③④ */}
+              </span>
+              {choice}
+            </button>
+          );
+        })}
+      </div>
+      {/* 다음 버튼 */}
+      {chosen !== null && (
+        <div style={{ marginTop: 20, textAlign: "center" }}>
+          <button className="action-btn primary" onClick={next}>
+            {qIdx + 1 < deck.length ? "다음 →" : "결과 보기"}
+          </button>
+        </div>
+      )}
+    </div>
+  );
 }
 
 /* ───────────────── CARD TEST MODE ───────────────── */
@@ -476,10 +708,6 @@ export default function VocabApp() {
   const [flipped, setFlipped] = useState(false);
   const [cardDeck, setCardDeck] = useState([]);
   const [cardSections, setCardSections] = useState(new Set());
-  const [testWords, setTestWords] = useState([]);
-  const [testAnswers, setTestAnswers] = useState({});
-  const [testSubmitted, setTestSubmitted] = useState(false);
-  const [testType, setTestType] = useState("eng");
   const [showUpload, setShowUpload] = useState(false);
   const [uploadMsg, setUploadMsg] = useState("");
   const fileRef = useRef(null);
@@ -502,9 +730,6 @@ export default function VocabApp() {
     setCardDeck([]);
     setCardIdx(0);
     setFlipped(false);
-    setTestWords([]);
-    setTestAnswers({});
-    setTestSubmitted(false);
   };
 
   const applyTabs = (newTabs, sourceLabel) => {
@@ -593,21 +818,7 @@ export default function VocabApp() {
     if (mode === "card") buildCardDeck(allWords.filter(x => cardSections.has(x.s)), cardShuffle);
   }, [cardSections]);
 
-  const startTest = (type = "eng") => {
-    setTestType(type);
-    setTestWords(shuffle(filteredWords).slice(0, Math.min(20, filteredWords.length)));
-    setTestAnswers({});
-    setTestSubmitted(false);
-    setMode("test");
-  };
-
   const toggleStar = (wordKey) => setStarred(prev => { const n = new Set(prev); n.has(wordKey)?n.delete(wordKey):n.add(wordKey); return n; });
-
-  const testScore = testSubmitted ? testWords.filter((w, i) => {
-    const ans = (testAnswers[i] || "").trim().toLowerCase();
-    if (testType === "eng") return ans === w.w.toLowerCase();
-    return w.m.split(",").some(m => ans === m.trim());
-  }).length : 0;
 
   const handleFileUpload = (e) => {
     const file = e.target.files?.[0];
@@ -791,7 +1002,7 @@ export default function VocabApp() {
         <div className="mode-strip">
           {[["list","📋 목록"],["card","🃏 카드"],["cardtest","📸 카드테스트"],["test","✏️ 테스트"]].map(([k,l]) => (
             <button key={k} className={`tab-btn ${mode===k?"active":""}`}
-              onClick={() => { setMode(k); if(k==="card") startCards(); if(k==="test") startTest(); }}
+              onClick={() => { setMode(k); if(k==="card") startCards(); }}
               style={{ whiteSpace: "nowrap" }}
             >{l}</button>
           ))}
@@ -908,56 +1119,9 @@ export default function VocabApp() {
           <CardTestMode allWords={allWords} allSections={allSections} />
         )}
 
-        {/* TEST */}
+        {/* TEST — 객관식 4지선다 */}
         {mode === "test" && (
-          <div style={{ animation: "fadeUp 0.4s ease-out" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20, flexWrap: "wrap", gap: 12 }}>
-              <div style={{ display: "flex", gap: 8 }}>
-                <button className={`pill ${testType==="eng"?"active":""}`} onClick={() => startTest("eng")}>뜻 → 영단어</button>
-                <button className={`pill ${testType==="kor"?"active":""}`} onClick={() => startTest("kor")}>영단어 → 뜻</button>
-              </div>
-              {testSubmitted && (
-                <span style={{ padding: "5px 14px", borderRadius: 20, fontSize: 13, fontWeight: 700, background: testScore >= testWords.length * 0.8 ? "#f0f7f2" : "#fdf5f3", color: testScore >= testWords.length * 0.8 ? "#5a9a6a" : "#d4644a" }}>
-                  {testScore} / {testWords.length}
-                </span>
-              )}
-            </div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-              {testWords.map((w, i) => {
-                const ans = (testAnswers[i] || "").trim().toLowerCase();
-                const isCorrect = testSubmitted && (testType === "eng" ? ans === w.w.toLowerCase() : w.m.split(",").some(m => ans === m.trim()));
-                const isWrong = testSubmitted && !isCorrect;
-                return (
-                  <div key={i} style={{ display: "flex", alignItems: "center", gap: 14, padding: "12px 16px", background: "#fff", borderRadius: 10, border: `1px solid ${isCorrect?"#5a9a6a":isWrong?"#d4644a":"#e5e2dc"}` }}>
-                    <span style={{ fontSize: 12, color: "#bbb", width: 24, textAlign: "right" }}>{i+1}</span>
-                    <span style={{ flex: 1, fontSize: 14, fontWeight: 500, color: "#2c2824", minWidth: 80, fontFamily: testType === "kor" ? "'JetBrains Mono', monospace" : "inherit" }}>
-                      {testType === "eng" ? w.m : w.w}
-                    </span>
-                    <input className={`test-input ${testSubmitted?(isCorrect?"correct":"wrong"):""}`}
-                      placeholder={testType === "eng" ? "영단어 입력" : "뜻 입력"}
-                      value={testAnswers[i] || ""} disabled={testSubmitted}
-                      onChange={e => setTestAnswers({...testAnswers, [i]: e.target.value})}
-                      onKeyDown={e => { if (e.key === "Enter" && !testSubmitted) { const next = e.target.closest("div").nextElementSibling?.querySelector("input"); if (next) next.focus(); else setTestSubmitted(true); } }}
-                    />
-                    {isWrong && <span style={{ fontSize: 12, color: "#d4644a", fontWeight: 600, minWidth: 60, fontFamily: testType === "eng" ? "'JetBrains Mono'" : "inherit" }}>{testType === "eng" ? w.w : w.m}</span>}
-                  </div>
-                );
-              })}
-            </div>
-            <div style={{ display: "flex", gap: 12, marginTop: 24 }}>
-              {!testSubmitted ? (
-                <button className="action-btn primary" onClick={() => setTestSubmitted(true)}>채점하기</button>
-              ) : (
-                <>
-                  <button className="action-btn primary" onClick={() => startTest(testType)}>다시 풀기</button>
-                  <button className="action-btn secondary" onClick={() => {
-                    const wrong = testWords.filter((w,i) => { const a = (testAnswers[i]||"").trim().toLowerCase(); return testType==="eng"?a!==w.w.toLowerCase():!w.m.split(",").some(m=>a===m.trim()); });
-                    if (wrong.length > 0) { setTestWords(shuffle(wrong)); setTestAnswers({}); setTestSubmitted(false); }
-                  }}>❌ 틀린 것만 다시</button>
-                </>
-              )}
-            </div>
-          </div>
+          <MCQTest allWords={allWords} allSections={allSections} key={activeTabIdx} />
         )}
       </div>
 
