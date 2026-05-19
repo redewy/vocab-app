@@ -80,17 +80,17 @@ function getSections(words) {
 }
 
 let _audioCtx = null;
-function getAudioCtx() {
+async function getAudioCtx() {
   if (!_audioCtx || _audioCtx.state === "closed") {
     _audioCtx = new (window.AudioContext || window.webkitAudioContext)();
   }
-  if (_audioCtx.state === "suspended") _audioCtx.resume();
+  if (_audioCtx.state === "suspended") await _audioCtx.resume();
   return _audioCtx;
 }
 
-function playShutter() {
+async function playShutter() {
   try {
-    const ctx = getAudioCtx();
+    const ctx = await getAudioCtx();
     const now = ctx.currentTime;
     const sr = ctx.sampleRate;
 
@@ -108,17 +108,17 @@ function playShutter() {
     };
 
     // 첫 번째 커튼: 날카로운 고음 + 바디 울림
-    click(now,        4200, 0.6, 2.0, 0.004);
+    click(now,         4200, 0.6, 2.0, 0.004);
     click(now + 0.003, 1400, 1.8, 0.7, 0.018);
     // 두 번째 커튼 (80ms 후): 조금 낮고 부드럽게
-    click(now + 0.08, 3000, 0.7, 1.4, 0.005);
+    click(now + 0.08,  3000, 0.7, 1.4, 0.005);
     click(now + 0.084, 1100, 1.5, 0.5, 0.022);
   } catch (_) {}
 }
 
-function playCorrect() {
+async function playCorrect() {
   try {
-    const ctx = getAudioCtx();
+    const ctx = await getAudioCtx();
     const now = ctx.currentTime;
     // 밝은 두 음: C5 → E5 (정답 딩동)
     [[523.25, 0], [659.25, 0.12]].forEach(([freq, t]) => {
@@ -133,9 +133,9 @@ function playCorrect() {
   } catch (_) {}
 }
 
-function playWrong() {
+async function playWrong() {
   try {
-    const ctx = getAudioCtx();
+    const ctx = await getAudioCtx();
     const now = ctx.currentTime;
     // 낮고 짧은 버저음: 두 번 (오답 삐-삐)
     [0, 0.14].forEach(t => {
