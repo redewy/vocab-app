@@ -43,9 +43,13 @@ function normalizeSheetWords(data) {
       const section = item.s ?? item.section ?? item.no ?? item["지문번호"] ?? item["번호"] ?? item["범위"] ?? 1;
       const word    = item.w ?? item.word ?? item.WORD ?? item["영단어"] ?? item["단어"] ?? item["영어"] ?? "";
       const meaning = item.m ?? item.meaning ?? item.MEANING ?? item["한글뜻"] ?? item["뜻"] ?? item["의미"] ?? item["한국어"] ?? "";
-      // 오답 보기 (스프레드시트 컬럼에서 직접 가져옴)
-      const ew = [item["영어오답1"], item["영어오답2"], item["영어오답3"], item["영어오답4"]].map(str).filter(Boolean);
-      const kw = [item["한글오답1"], item["한글오답2"], item["한글오답3"], item["한글오답4"]].map(str).filter(Boolean);
+      // 오답 보기: GAS가 ew/kw 배열로 보내면 우선 사용, 아니면 개별 컬럼명으로 fallback
+      const ew = Array.isArray(item.ew) && item.ew.length > 0
+        ? item.ew.map(str).filter(Boolean)
+        : [item["영어오답1"], item["영어오답2"], item["영어오답3"], item["영어오답4"]].map(str).filter(Boolean);
+      const kw = Array.isArray(item.kw) && item.kw.length > 0
+        ? item.kw.map(str).filter(Boolean)
+        : [item["한글오답1"], item["한글오답2"], item["한글오답3"], item["한글오답4"]].map(str).filter(Boolean);
       return {
         s: isNaN(Number(section)) ? str(section) : Number(section),
         w: str(word),
