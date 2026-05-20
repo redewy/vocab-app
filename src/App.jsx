@@ -80,6 +80,18 @@ function getSections(words) {
 }
 
 let _audioCtx = null;
+
+// iOS Safari requires AudioContext creation + resume inside a synchronous user gesture.
+// Call this synchronously (no await) at the top of any click/touch handler.
+function unlockAudio() {
+  try {
+    if (!_audioCtx || _audioCtx.state === "closed") {
+      _audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    }
+    if (_audioCtx.state === "suspended") _audioCtx.resume();
+  } catch (_) {}
+}
+
 async function getAudioCtx() {
   if (!_audioCtx || _audioCtx.state === "closed") {
     _audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -210,6 +222,7 @@ function MCQTest({ allWords, allSections }) {
 
   const handleChoice = (idx) => {
     if (chosen !== null) return; // 이미 선택함
+    unlockAudio(); // synchronous unlock for iOS Safari
     setChosen(idx);
     const correct = idx === deck[qIdx].answerIdx;
     if (correct) { playCorrect(); setScore(s => s + 1); }
@@ -414,6 +427,7 @@ function CardTestMode({ allWords, allSections }) {
   };
 
   const startTest = () => {
+    unlockAudio(); // synchronous unlock for iOS Safari
     const actualCount = wordCount === "all" ? filteredWords.length : Math.min(wordCount, filteredWords.length);
     if (actualCount === 0) return;
     const newDeck = shuffle(filteredWords).slice(0, actualCount);
