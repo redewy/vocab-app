@@ -154,6 +154,7 @@ async function playWrong() {
 function MCQTest({ allWords, allSections }) {
   const [testSections, setTestSections] = useState(new Set(allSections));
   const [direction, setDirection]       = useState("kor"); // kor=영단어→뜻, eng=뜻→영단어
+  const [wordCount, setWordCount]       = useState(20);   // 10|20|30|40|50|"all"
   const [screen, setScreen]             = useState("setup");
   const [deck, setDeck]                 = useState([]);   // [{word, choices, answerIdx}]
   const [qIdx, setQIdx]                 = useState(0);
@@ -193,7 +194,9 @@ function MCQTest({ allWords, allSections }) {
 
   const startTest = (dir = direction) => {
     if (filteredWords.length < 2) return;
-    setDeck(buildDeck(filteredWords, dir));
+    const count = wordCount === "all" ? filteredWords.length : Math.min(wordCount, filteredWords.length);
+    const selected = shuffle([...filteredWords]).slice(0, count);
+    setDeck(buildDeck(selected, dir));
     setQIdx(0); setChosen(null); setScore(0); setWrongList([]);
     setScreen("quiz");
   };
@@ -226,6 +229,17 @@ function MCQTest({ allWords, allSections }) {
           selected={testSections} onToggle={toggleSec}
           onAll={() => setTestSections(new Set(allSections))} onNone={() => setTestSections(new Set())} />
         <div style={{ marginBottom: 20 }}>
+          <div style={{ fontSize: 11, color: "#a0978a", marginBottom: 8, fontWeight: 500 }}>문제 수 (랜덤)</div>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            {[10, 20, 30, 40, 50, "all"].map(n => (
+              <button key={n} className={`pill ${wordCount === n ? "active" : ""}`}
+                onClick={() => setWordCount(n)}>
+                {n === "all" ? "전체" : n}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div style={{ marginBottom: 20 }}>
           <div style={{ fontSize: 11, color: "#a0978a", marginBottom: 8, fontWeight: 500 }}>문제 방향</div>
           <div style={{ display: "flex", gap: 8 }}>
             <button className={`pill ${direction==="kor"?"active":""}`}
@@ -236,7 +250,7 @@ function MCQTest({ allWords, allSections }) {
         </div>
         <button className="action-btn primary" disabled={filteredWords.length < 2}
           onClick={() => startTest(direction)}>
-          테스트 시작 ({filteredWords.length}문제)
+          테스트 시작 ({wordCount === "all" ? filteredWords.length : Math.min(wordCount, filteredWords.length)}문제)
         </button>
       </div>
     );
