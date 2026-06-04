@@ -974,19 +974,20 @@ export default function VocabApp() {
         .drop-zone:hover{border-color:#2f7f7a;background:#f2faf9}
         .section-card{background:#fff;border:1px solid #dfe5ee;border-radius:16px;overflow:hidden;box-shadow:0 10px 26px rgba(23,32,51,0.05)}
         .section-title{font-size:12px;font-weight:800;color:#2f7f7a;padding:10px 18px;background:#f2faf9;border-bottom:1px solid #d5e8e5;letter-spacing:1px}
-        .exam-tabs{display:flex;gap:0;overflow-x:auto;overflow-y:hidden;padding-top:16px;flex-wrap:nowrap}
-        .exam-tab{padding:9px 18px;border:1px solid #d8dee8;border-bottom:none;background:#f6f8fb;color:#657083;border-radius:10px 10px 0 0;cursor:pointer;font-size:13px;font-weight:500;font-family:var(--font-sans);white-space:nowrap;transition:all 0.15s;margin-right:2px;position:relative}
+        .exam-tabs{display:flex;gap:4px;padding-top:16px;flex-wrap:wrap;align-items:flex-end}
+        .exam-tab{padding:9px 18px;border:1px solid #d8dee8;border-bottom:none;background:#f6f8fb;color:#657083;border-radius:10px 10px 0 0;cursor:pointer;font-size:13px;font-weight:500;font-family:var(--font-sans);white-space:nowrap;transition:all 0.15s;position:relative}
         .exam-tab.active{border-color:#2f7f7a;background:#fff;color:#172033;font-weight:800;z-index:2}
         .mode-strip{display:flex;gap:0;border:1px solid #d8dee8;border-top-color:#2f7f7a;margin-bottom:16px;background:#fff;overflow-x:auto;border-radius:0 0 14px 14px;box-shadow:0 8px 18px rgba(23,32,51,0.03)}
         @media(max-width:700px){
           .app-frame{padding:18px 12px 0}
           .header-panel{border-radius:18px;padding:20px 16px 0}
           .header-panel .brand-logo{width:92px!important;height:56px!important}
-          .exam-tab{padding:9px 14px}
+          .exam-tab{padding:8px 12px;font-size:12px}
           .vocab-row{grid-template-columns:34px minmax(0,1fr);padding:12px 14px;font-size:13px}
           .vocab-row span:last-child{grid-column:2;color:#657083}
           .card-container{height:240px}
-          .mode-strip{margin-inline:0}
+          .mode-strip{margin-inline:0;flex-wrap:wrap;border-radius:10px}
+          .mode-strip .tab-btn{flex:1 1 auto;min-width:0;font-size:12px;padding:10px 6px;text-align:center}
         }
       `}</style>
 
