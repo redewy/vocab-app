@@ -244,7 +244,7 @@ function MCQTest({ allWords, allSections }) {
         <div style={{ marginBottom: 20 }}>
           <div style={{ fontSize: 11, color: "#a0978a", marginBottom: 8, fontWeight: 500 }}>문제 수 (랜덤)</div>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            {[10, 20, 30, 40, 50, "all"].map(n => (
+            {[10, 20, 30, 40, 50, 100, "all"].map(n => (
               <button key={n} className={`pill ${wordCount === n ? "active" : ""}`}
                 onClick={() => setWordCount(n)}>
                 {n === "all" ? "전체" : n}
@@ -293,6 +293,7 @@ function MCQTest({ allWords, allSections }) {
             <div style={{ fontSize: 11, color: "#a0978a", fontWeight: 600, letterSpacing: 3, marginBottom: 12, textTransform: "uppercase" }}>틀린 단어</div>
             {wrongList.map((w, i) => (
               <div key={i} style={{ display: "flex", gap: 12, padding: "7px 0", borderBottom: "1px solid #f0ece5", alignItems: "baseline" }}>
+                <span style={{ fontSize: 11, color: "#c4a46c", minWidth: 32, fontWeight: 600 }}>{w.s}번</span>
                 <span style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 13, color: "#2c2824", fontWeight: 600, flex: 1 }}>{w.w}</span>
                 <span style={{ fontSize: 13, color: "#6b6259" }}>{w.m}</span>
               </div>
