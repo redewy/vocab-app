@@ -290,7 +290,47 @@ function MCQTest({ allWords, allSections }) {
         </div>
         {wrongList.length > 0 && (
           <div style={{ borderTop: "1px solid #e8e3db", paddingTop: 20 }}>
-            <div style={{ fontSize: 11, color: "#a0978a", fontWeight: 600, letterSpacing: 3, marginBottom: 12, textTransform: "uppercase" }}>틀린 단어</div>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+              <div style={{ fontSize: 11, color: "#a0978a", fontWeight: 600, letterSpacing: 3, textTransform: "uppercase" }}>틀린 단어</div>
+              <button
+                onClick={() => {
+                  const win = window.open("", "_blank");
+                  win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8">
+                    <title>틀린 단어</title>
+                    <style>
+                      @page { size: A4 portrait; margin: 15mm 18mm; }
+                      body { font-family: 'Noto Sans KR', sans-serif; color: #1a1a1a; }
+                      h2 { font-size: 16px; margin-bottom: 4px; }
+                      p  { font-size: 12px; color: #888; margin-bottom: 20px; }
+                      table { width: 100%; border-collapse: collapse; font-size: 13px; }
+                      th { text-align: left; padding: 7px 10px; border-bottom: 2px solid #333; font-size: 11px; color: #555; }
+                      td { padding: 8px 10px; border-bottom: 1px solid #eee; vertical-align: middle; }
+                      .no { color: #c4a46c; font-size: 11px; width: 40px; }
+                      .word { font-family: monospace; font-weight: 700; }
+                      .blank { border-bottom: 1px solid #bbb; min-width: 120px; display: inline-block; height: 16px; }
+                    </style></head><body>
+                    <h2>틀린 단어 오답노트</h2>
+                    <p>총 ${wrongList.length}개 · ${new Date().toLocaleDateString("ko-KR")}</p>
+                    <table>
+                      <tr><th>지문</th><th>영단어</th><th>뜻</th><th>다시 써보기</th></tr>
+                      ${wrongList.map(w => `<tr>
+                        <td class="no">${w.s}번</td>
+                        <td class="word">${w.w}</td>
+                        <td>${w.m}</td>
+                        <td><span class="blank"></span></td>
+                      </tr>`).join("")}
+                    </table>
+                  </body></html>`);
+                  win.document.close();
+                  win.focus();
+                  win.print();
+                }}
+                style={{ padding: "5px 12px", border: "1px solid #d4cfc6", borderRadius: 6,
+                  background: "#fff", cursor: "pointer", fontSize: 12, color: "#5a554d",
+                  fontFamily: "inherit", display: "flex", alignItems: "center", gap: 4 }}>
+                🖨 프린트
+              </button>
+            </div>
             {wrongList.map((w, i) => (
               <div key={i} style={{ display: "flex", gap: 12, padding: "7px 0", borderBottom: "1px solid #f0ece5", alignItems: "baseline" }}>
                 <span style={{ fontSize: 11, color: "#c4a46c", minWidth: 32, fontWeight: 600 }}>{w.s}번</span>
