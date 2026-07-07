@@ -1164,7 +1164,16 @@ export default function VocabApp() {
                       <div className="vocab-row" key={`${sec}-${i}`}>
                         <button className="star-btn" onClick={() => toggleStar(w.w)}>{starred.has(w.w) ? "⭐" : <span style={{ color: "#c4a46c" }}>☆</span>}</button>
                         <span className={hideMode==="word"?"blur-text":""} style={{ fontFamily: "var(--font-mono)", fontSize: 14, fontWeight: 600, color: "#172033" }}>{w.w}</span>
-                        <span className={hideMode==="meaning"?"blur-text":""} style={{ fontSize: 13, color: "#4f5b6b" }}>{w.m}</span>
+                        <span>
+                          <span className={hideMode==="meaning"?"blur-text":""} style={{ fontSize: 13, color: "#4f5b6b" }}>{w.m}</span>
+                          {(w.syn?.length > 0 || w.ant?.length > 0) && (
+                            <span style={{ display: "block", fontSize: 11, color: "#a0978a", marginTop: 2 }}>
+                              {w.syn?.length > 0 && <>유의어 {w.syn.join(", ")}</>}
+                              {w.syn?.length > 0 && w.ant?.length > 0 && "  ·  "}
+                              {w.ant?.length > 0 && <>반의어 {w.ant.join(", ")}</>}
+                            </span>
+                          )}
+                        </span>
                       </div>
                     ))}
                   </div>
@@ -1225,6 +1234,12 @@ export default function VocabApp() {
                     <div className="card-face card-back">
                       <div style={{ fontSize: 11, color: "#a0978a", marginBottom: 10, letterSpacing: 3, textTransform: "uppercase" }}>뜻</div>
                       <div style={{ fontSize: 22, fontWeight: 700, textAlign: "center" }}>{cardDeck[cardIdx].m}</div>
+                      {(cardDeck[cardIdx].syn?.length > 0 || cardDeck[cardIdx].ant?.length > 0) && (
+                        <div style={{ marginTop: 16, textAlign: "center", fontSize: 12, color: "rgba(255,255,255,0.75)", lineHeight: 1.8 }}>
+                          {cardDeck[cardIdx].syn?.length > 0 && <div>유의어 · {cardDeck[cardIdx].syn.join(", ")}</div>}
+                          {cardDeck[cardIdx].ant?.length > 0 && <div>반의어 · {cardDeck[cardIdx].ant.join(", ")}</div>}
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
