@@ -708,20 +708,31 @@ function PrintView({ tabs, activeTabIdx, onClose }) {
       <div key={sec} style={{ marginBottom: 14, pageBreakInside: "avoid", breakInside: "avoid" }}>
         <div style={{ fontSize: 10, fontWeight: 700, color: "#c4a46c", padding: "3px 0", borderBottom: "1.5px solid #c4a46c", marginBottom: 2 }}>#{sec}번</div>
         <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11.5, tableLayout: "fixed" }}>
+          <thead>
+            <tr>
+              <th style={{ width: 18 }}></th>
+              <th style={{ padding: "2px 4px", textAlign: "left", fontSize: 9, color: "#a0978a", borderBottom: "1px solid #e5e2dc" }}>영단어</th>
+              <th style={{ padding: "2px 4px", textAlign: "left", fontSize: 9, color: "#a0978a", borderBottom: "1px solid #e5e2dc" }}>뜻</th>
+              <th style={{ padding: "2px 4px", textAlign: "left", fontSize: 9, color: "#a0978a", borderBottom: "1px solid #e5e2dc" }}>유의어</th>
+              <th style={{ padding: "2px 4px", textAlign: "left", fontSize: 9, color: "#a0978a", borderBottom: "1px solid #e5e2dc" }}>반의어</th>
+            </tr>
+          </thead>
           <tbody>
             {secWords.map((w, i) => (
               <tr key={i} style={{ borderBottom: "1px solid #f0ede6", pageBreakInside: "avoid", breakInside: "avoid" }}>
                 <td style={{ padding: "3px 4px", width: 18, color: "#ccc", textAlign: "right", fontSize: 10 }}>{i+1}</td>
-                <td style={{ padding: "3px 4px", fontFamily: "'JetBrains Mono', monospace", fontWeight: 500, width: "48%", color: "#1a1a1a", overflow: "hidden" }}>
+                <td style={{ padding: "3px 4px", fontFamily: "'JetBrains Mono', monospace", fontWeight: 500, width: "26%", color: "#1a1a1a", overflow: "hidden" }}>
                   {printMode==="meaningOnly"
                     ? <span style={{ borderBottom: "1px dotted #ccc", display: "inline-block", minWidth: 65 }}>&nbsp;</span>
                     : w.w}
                 </td>
-                <td style={{ padding: "3px 4px", color: "#444", fontSize: 11, overflow: "hidden" }}>
+                <td style={{ padding: "3px 4px", color: "#444", fontSize: 11, overflow: "hidden", width: "26%" }}>
                   {printMode==="wordOnly"
                     ? <span style={{ borderBottom: "1px dotted #ccc", display: "inline-block", minWidth: 65 }}>&nbsp;</span>
                     : w.m}
                 </td>
+                <td style={{ padding: "3px 4px", color: "#666", fontSize: 10, overflow: "hidden" }}>{w.syn?.join(", ")}</td>
+                <td style={{ padding: "3px 4px", color: "#666", fontSize: 10, overflow: "hidden" }}>{w.ant?.join(", ")}</td>
               </tr>
             ))}
           </tbody>
@@ -818,7 +829,10 @@ export default function VocabApp() {
   const [dataSource, setDataSource] = useState("로딩 중...");
   const [mode, setMode] = useState("list");
   const [selectedSections, setSelectedSections] = useState(new Set());
-  const [hideMode, setHideMode] = useState("none");
+  const [hiddenFields, setHiddenFields] = useState(new Set()); // "word"|"meaning"|"syn"|"ant"
+  const toggleHidden = (field) => setHiddenFields(prev => {
+    const n = new Set(prev); n.has(field) ? n.delete(field) : n.add(field); return n;
+  });
   const [starred, setStarred] = useState(() => {
     try {
       const saved = localStorage.getItem("vocab-starred");
@@ -1034,9 +1048,10 @@ export default function VocabApp() {
         .tab-btn{padding:13px 18px;border:none;background:transparent;color:#657083;font-size:14px;font-weight:700;cursor:pointer;border-bottom:3px solid transparent;transition:all 0.2s;font-family:var(--font-sans);position:relative}
         .tab-btn:hover{color:#172033;background:rgba(47,127,122,0.05)}
         .tab-btn.active{color:#172033;border-bottom-color:#2f7f7a;background:#fff}
-        .vocab-row{display:grid;grid-template-columns:40px minmax(0,1.1fr) minmax(0,1fr);align-items:center;padding:13px 18px;border-bottom:1px solid #edf0f5;transition:background 0.12s,transform 0.12s;gap:12px}
+        .vocab-row{display:grid;grid-template-columns:40px minmax(0,1fr) minmax(0,1fr) minmax(0,0.85fr) minmax(0,0.85fr);align-items:center;padding:13px 18px;border-bottom:1px solid #edf0f5;transition:background 0.12s,transform 0.12s;gap:12px}
         .vocab-row:hover{background:#f7fbfb}
         .vocab-row span{min-width:0;overflow-wrap:anywhere}
+        .vocab-header{display:grid;grid-template-columns:40px minmax(0,1fr) minmax(0,1fr) minmax(0,0.85fr) minmax(0,0.85fr);gap:12px;padding:8px 18px;font-size:10px;font-weight:800;letter-spacing:1px;color:#a0978a;background:#fafbfd;border-bottom:1px solid #edf0f5;text-transform:uppercase}
         .star-btn{background:#f6f8fb;border:1px solid transparent;border-radius:999px;width:28px;height:28px;cursor:pointer;font-size:15px;transition:transform 0.15s,border-color 0.15s,background 0.15s;display:flex;align-items:center;justify-content:center}
         .star-btn:hover{transform:scale(1.08);border-color:#d8dee8;background:#fff}
         .blur-text{filter:blur(5px);transition:filter 0.15s;user-select:none;cursor:pointer}
@@ -1074,8 +1089,9 @@ export default function VocabApp() {
           .header-panel{border-radius:18px;padding:20px 16px 0}
           .header-panel .brand-logo{width:92px!important;height:56px!important}
           .exam-tab{padding:8px 12px;font-size:12px}
-          .vocab-row{grid-template-columns:34px minmax(0,1fr);padding:12px 14px;font-size:13px}
-          .vocab-row span:last-child{grid-column:2;color:#657083}
+          .vocab-row{grid-template-columns:34px minmax(0,1fr);padding:12px 14px;font-size:13px;row-gap:3px}
+          .vocab-row .vocab-cell{grid-column:2;color:#657083}
+          .vocab-header{display:none}
           .card-container{height:240px}
           .mode-strip{margin-inline:0;flex-wrap:wrap;border-radius:10px}
           .mode-strip .tab-btn{flex:1 1 auto;min-width:0;font-size:12px;padding:10px 6px;text-align:center}
@@ -1138,8 +1154,10 @@ export default function VocabApp() {
             <SectionChips label="📂 범위 선택" sections={allSections} allWords={allWords} selected={selectedSections}
               onToggle={toggleSection} onAll={() => setSelectedSections(new Set(allSections))} onNone={() => setSelectedSections(new Set())} />
             <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 14, flexWrap: "wrap" }}>
-              <button className={`pill ${hideMode==="meaning"?"active":""}`} onClick={() => setHideMode(hideMode==="meaning"?"none":"meaning")}>뜻 가리기</button>
-              <button className={`pill ${hideMode==="word"?"active":""}`} onClick={() => setHideMode(hideMode==="word"?"none":"word")}>단어 가리기</button>
+              <button className={`pill ${hiddenFields.has("word")?"active":""}`} onClick={() => toggleHidden("word")}>단어 가리기</button>
+              <button className={`pill ${hiddenFields.has("meaning")?"active":""}`} onClick={() => toggleHidden("meaning")}>뜻 가리기</button>
+              <button className={`pill ${hiddenFields.has("syn")?"active":""}`} onClick={() => toggleHidden("syn")}>유의어 가리기</button>
+              <button className={`pill ${hiddenFields.has("ant")?"active":""}`} onClick={() => toggleHidden("ant")}>반의어 가리기</button>
               <button className={`pill ${filterStarred?"active":""}`} onClick={() => setFilterStarred(!filterStarred)}>⭐ {starred.size}</button>
               <span style={{ marginLeft: "auto", fontSize: 12, color: "#657083", fontWeight: 700 }}>{filteredWords.length}개</span>
             </div>
@@ -1160,20 +1178,20 @@ export default function VocabApp() {
                 <div key={sec} className="section-card" style={{ marginBottom: 18 }}>
                   <div className="section-title">#{sec}번</div>
                   <div style={{ background: "#fff", overflow: "hidden" }}>
+                    <div className="vocab-header">
+                      <span></span>
+                      <span>영단어</span>
+                      <span>뜻</span>
+                      <span>유의어</span>
+                      <span>반의어</span>
+                    </div>
                     {secWords.map((w, i) => (
                       <div className="vocab-row" key={`${sec}-${i}`}>
                         <button className="star-btn" onClick={() => toggleStar(w.w)}>{starred.has(w.w) ? "⭐" : <span style={{ color: "#c4a46c" }}>☆</span>}</button>
-                        <span className={hideMode==="word"?"blur-text":""} style={{ fontFamily: "var(--font-mono)", fontSize: 14, fontWeight: 600, color: "#172033" }}>{w.w}</span>
-                        <span>
-                          <span className={hideMode==="meaning"?"blur-text":""} style={{ fontSize: 13, color: "#4f5b6b" }}>{w.m}</span>
-                          {(w.syn?.length > 0 || w.ant?.length > 0) && (
-                            <span style={{ display: "block", fontSize: 11, color: "#a0978a", marginTop: 2 }}>
-                              {w.syn?.length > 0 && <>유의어 {w.syn.join(", ")}</>}
-                              {w.syn?.length > 0 && w.ant?.length > 0 && "  ·  "}
-                              {w.ant?.length > 0 && <>반의어 {w.ant.join(", ")}</>}
-                            </span>
-                          )}
-                        </span>
+                        <span className={`vocab-cell ${hiddenFields.has("word")?"blur-text":""}`} style={{ fontFamily: "var(--font-mono)", fontSize: 14, fontWeight: 600, color: "#172033" }}>{w.w}</span>
+                        <span className={`vocab-cell ${hiddenFields.has("meaning")?"blur-text":""}`} style={{ fontSize: 13, color: "#4f5b6b" }}>{w.m}</span>
+                        <span className={`vocab-cell ${hiddenFields.has("syn")?"blur-text":""}`} style={{ fontSize: 12, color: "#4f5b6b" }}>{w.syn?.join(", ")}</span>
+                        <span className={`vocab-cell ${hiddenFields.has("ant")?"blur-text":""}`} style={{ fontSize: 12, color: "#4f5b6b" }}>{w.ant?.join(", ")}</span>
                       </div>
                     ))}
                   </div>
