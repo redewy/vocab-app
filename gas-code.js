@@ -98,7 +98,8 @@ function doGet() {
  * action:
  *  - signup    { id, pw, name }
  *  - login     { id, pw }                      → { ok, name, stars }
- *  - getUser   { id }                          → { ok, name, stars } (세션 복원용)
+ *  - getUser   { id }                          → { ok, name, stars, role } (세션 복원용)
+ *  - getDashboard { id }                       → { ok, members, records } (teacher 전용)
  *  - saveStars { id, stars: ["word", ...] }
  *  - saveResult{ id, result: { tab, type, direction, score, total, wrong: ["word", ...] } }
  */
@@ -109,14 +110,20 @@ function jsonOut(obj) {
     .setMimeType(ContentService.MimeType.JSON);
 }
 
-// 회원 시트: 아이디 | 비밀번호 | 이름 | 가입일 | 즐겨찾기(쉼표구분)
+// 회원 시트: 아이디 | 비밀번호 | 이름 | 가입일 | 즐겨찾기(쉼표구분) | 역할
+// 역할(F열)에 "teacher"를 입력하면 그 계정은 앱에서 학습현황 대시보드를 볼 수 있음
 function getMemberSheet(ss) {
   var sh = ss.getSheetByName("회원");
   if (!sh) {
     sh = ss.insertSheet("회원");
-    sh.appendRow(["아이디", "비밀번호", "이름", "가입일", "즐겨찾기"]);
+    sh.appendRow(["아이디", "비밀번호", "이름", "가입일", "즐겨찾기", "역할"]);
   }
+  if (String(sh.getRange(1, 6).getValue()) === "") sh.getRange(1, 6).setValue("역할");
   return sh;
+}
+
+function memberRole(rowData) {
+  return String(rowData[5] || "").trim().toLowerCase();
 }
 
 // 학습기록 시트: 날짜 | 아이디 | 이름 | 탭 | 유형 | 점수 | 총문제 | 정답률 | 틀린단어
@@ -163,7 +170,7 @@ function doPost(e) {
         return jsonOut({ ok: false, error: "아이디 또는 비밀번호가 올바르지 않습니다." });
       }
       var stars = String(m.data[4] || "").split(",").map(function(s) { return s.trim(); }).filter(Boolean);
-      return jsonOut({ ok: true, name: String(m.data[2]), stars: stars });
+      return jsonOut({ ok: true, name: String(m.data[2]), stars: stars, role: memberRole(m.data) });
     }
 
     // 저장된 세션 복원용 (비밀번호 없이 이름/즐겨찾기만 반환)
@@ -171,7 +178,42 @@ function doPost(e) {
       var mg = findMemberRow(members, String(body.id || "").trim());
       if (!mg) return jsonOut({ ok: false, error: "회원을 찾을 수 없습니다." });
       var gStars = String(mg.data[4] || "").split(",").map(function(s) { return s.trim(); }).filter(Boolean);
-      return jsonOut({ ok: true, name: String(mg.data[2]), stars: gStars });
+      return jsonOut({ ok: true, name: String(mg.data[2]), stars: gStars, role: memberRole(mg.data) });
+    }
+
+    // 선생님 대시보드: 전체 회원 + 학습기록 (역할이 teacher인 계정만)
+    if (action === "getDashboard") {
+      var mt = findMemberRow(members, String(body.id || "").trim());
+      if (!mt || memberRole(mt.data) !== "teacher") {
+        return jsonOut({ ok: false, error: "선생님 계정만 조회할 수 있습니다." });
+      }
+      var mData = members.getDataRange().getValues();
+      var memberList = [];
+      for (var mi = 1; mi < mData.length; mi++) {
+        var mid = String(mData[mi][0]).trim();
+        if (!mid) continue;
+        memberList.push({
+          id: mid,
+          name: String(mData[mi][2]),
+          joined: mData[mi][3] instanceof Date ? mData[mi][3].toISOString() : String(mData[mi][3]),
+          role: memberRole(mData[mi]),
+        });
+      }
+      var rData = getRecordSheet(ss).getDataRange().getValues();
+      var records = [];
+      for (var ri = 1; ri < rData.length; ri++) {
+        if (!String(rData[ri][1]).trim()) continue;
+        records.push({
+          date: rData[ri][0] instanceof Date ? rData[ri][0].toISOString() : String(rData[ri][0]),
+          id: String(rData[ri][1]).trim(),
+          tab: String(rData[ri][3]),
+          type: String(rData[ri][4]),
+          score: Number(rData[ri][5]) || 0,
+          total: Number(rData[ri][6]) || 0,
+          wrong: String(rData[ri][8] || ""),
+        });
+      }
+      return jsonOut({ ok: true, members: memberList, records: records });
     }
 
     if (action === "saveStars") {

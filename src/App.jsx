@@ -683,7 +683,7 @@ function LoginScreen({ onLogin }) {
       : await postApi("login",  { id: tid, pw: tpw });
     setBusy(false);
     if (!res.ok) { fail(res.error || "요청에 실패했습니다."); return; }
-    onLogin({ id: tid, name: res.name, stars: res.stars || [] });
+    onLogin({ id: tid, name: res.name, stars: res.stars || [], role: res.role || "" });
   };
 
   const inputStyle = {
@@ -879,6 +879,138 @@ function SectionChips({ sections, allWords, selected, onToggle, onAll, onNone, l
   );
 }
 
+/* ───────────────── TEACHER DASHBOARD (학습현황) ───────────────── */
+function TeacherDashboard({ user }) {
+  const [data, setData]       = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError]     = useState("");
+  const [selId, setSelId]     = useState(null); // 상세 펼친 학생
+
+  const load = async () => {
+    setLoading(true);
+    setError("");
+    const res = await postApi("getDashboard", { id: user.id });
+    if (res.ok) setData(res);
+    else setError(res.error || "학습현황을 불러오지 못했습니다.");
+    setLoading(false);
+  };
+
+  useEffect(() => { load(); }, []);
+
+  const fmtDate = (d) => `${d.getMonth() + 1}/${d.getDate()}`;
+  const fmtTime = (d) => `${d.getHours()}:${String(d.getMinutes()).padStart(2, "0")}`;
+
+  // 학생별 요약 (선생님 계정 제외, 최근 학습순 정렬)
+  const students = useMemo(() => {
+    if (!data) return [];
+    const byId = {};
+    data.records.forEach(r => { (byId[r.id] = byId[r.id] || []).push(r); });
+    const now = new Date();
+    const todayStr = now.toDateString();
+    return data.members
+      .filter(m => m.role !== "teacher")
+      .map(m => {
+        const recs = (byId[m.id] || []).slice().sort((a, b) => new Date(b.date) - new Date(a.date));
+        const totalQ = recs.reduce((s, r) => s + r.total, 0);
+        const totalS = recs.reduce((s, r) => s + r.score, 0);
+        const last = recs[0] ? new Date(recs[0].date) : null;
+        return {
+          ...m, recs,
+          count: recs.length,
+          avg: totalQ > 0 ? Math.round(totalS / totalQ * 100) : null,
+          last,
+          studiedToday: last ? last.toDateString() === todayStr : false,
+          weekCount: recs.filter(r => (now - new Date(r.date)) < 7 * 24 * 3600 * 1000).length,
+        };
+      })
+      .sort((a, b) => (b.last?.getTime() || 0) - (a.last?.getTime() || 0));
+  }, [data]);
+
+  const studiedTodayCount = students.filter(s => s.studiedToday).length;
+
+  const pctColor = (pct) => pct == null ? "#a0978a" : pct >= 80 ? "#3a7a4a" : pct >= 50 ? "#c4881c" : "#d4644a";
+
+  // 마지막 학습일 배지
+  const lastBadge = (st) => {
+    if (!st.last) return <span style={{ fontSize: 11, color: "#a0978a" }}>기록 없음</span>;
+    if (st.studiedToday) return <span style={{ fontSize: 11, fontWeight: 700, color: "#3a7a4a", background: "#f0f7f2", padding: "3px 8px", borderRadius: 999 }}>오늘 학습 ✓</span>;
+    const days = Math.floor((new Date() - st.last) / (24 * 3600 * 1000));
+    const color = days <= 3 ? "#657083" : "#d4644a";
+    return <span style={{ fontSize: 11, fontWeight: 600, color }}>{days === 0 ? "오늘" : `${days}일 전`} ({fmtDate(st.last)})</span>;
+  };
+
+  if (loading) return <div style={{ textAlign: "center", padding: 60, color: "#a0978a" }}>학습현황을 불러오는 중...</div>;
+  if (error) return (
+    <div style={{ textAlign: "center", padding: 60, color: "#d4644a" }}>
+      {error}
+      <div style={{ marginTop: 16 }}><button className="action-btn secondary" onClick={load}>다시 시도</button></div>
+    </div>
+  );
+
+  return (
+    <div style={{ animation: "fadeUp 0.4s ease-out" }}>
+      {/* 요약 카드 */}
+      <div style={{ display: "flex", gap: 10, marginBottom: 18, flexWrap: "wrap" }}>
+        {[["전체 학생", `${students.length}명`], ["오늘 학습", `${studiedTodayCount}명`], ["전체 응시", `${data.records.length}회`]].map(([l, v]) => (
+          <div key={l} style={{ flex: "1 1 100px", background: "#fff", border: "1px solid #dfe5ee", borderRadius: 14, padding: "14px 18px", textAlign: "center" }}>
+            <div style={{ fontSize: 11, color: "#a0978a", marginBottom: 4 }}>{l}</div>
+            <div style={{ fontSize: 20, fontWeight: 800, color: "#172033" }}>{v}</div>
+          </div>
+        ))}
+        <button onClick={load} className="pill" style={{ alignSelf: "center" }}>🔄 새로고침</button>
+      </div>
+
+      {/* 학생 목록 */}
+      <div className="section-card">
+        <div className="section-title">학생별 학습현황</div>
+        {students.length === 0 && <div style={{ textAlign: "center", padding: 40, color: "#a0978a" }}>가입한 학생이 없습니다.</div>}
+        {students.map(st => (
+          <div key={st.id} style={{ borderBottom: "1px solid #edf0f5" }}>
+            <div onClick={() => setSelId(selId === st.id ? null : st.id)}
+              style={{ display: "flex", alignItems: "center", gap: 12, padding: "13px 18px", cursor: "pointer", flexWrap: "wrap", background: selId === st.id ? "#f7fbfb" : "#fff" }}>
+              <span style={{ fontWeight: 700, fontSize: 14, color: "#172033", minWidth: 70 }}>{st.name}</span>
+              <span style={{ fontSize: 11, color: "#a0978a", fontFamily: "var(--font-mono)" }}>{st.id}</span>
+              <span style={{ marginLeft: "auto" }}>{lastBadge(st)}</span>
+              <span style={{ fontSize: 12, color: "#657083" }}>이번주 {st.weekCount}회 · 총 {st.count}회</span>
+              <span style={{ fontSize: 13, fontWeight: 800, color: pctColor(st.avg), minWidth: 48, textAlign: "right" }}>
+                {st.avg == null ? "—" : `${st.avg}%`}
+              </span>
+              <span style={{ fontSize: 11, color: "#a0978a" }}>{selId === st.id ? "▲" : "▼"}</span>
+            </div>
+            {/* 상세: 테스트 기록 */}
+            {selId === st.id && (
+              <div style={{ background: "#fafbfd", padding: "10px 18px 16px" }}>
+                {st.recs.length === 0 && <div style={{ fontSize: 12, color: "#a0978a", padding: "10px 0" }}>아직 테스트 기록이 없습니다.</div>}
+                {st.recs.map((r, i) => {
+                  const d = new Date(r.date);
+                  const pct = r.total > 0 ? Math.round(r.score / r.total * 100) : null;
+                  return (
+                    <div key={i} style={{ padding: "9px 0", borderBottom: i < st.recs.length - 1 ? "1px solid #edf0f5" : "none" }}>
+                      <div style={{ display: "flex", gap: 10, alignItems: "baseline", flexWrap: "wrap" }}>
+                        <span style={{ fontSize: 12, color: "#657083", minWidth: 74 }}>{fmtDate(d)} {fmtTime(d)}</span>
+                        <span style={{ fontSize: 12, fontWeight: 700, color: "#2f7f7a" }}>{r.type}</span>
+                        <span style={{ fontSize: 11, color: "#a0978a" }}>{r.tab}</span>
+                        <span style={{ marginLeft: "auto", fontSize: 13, fontWeight: 800, color: pctColor(pct) }}>
+                          {r.score}/{r.total} ({pct}%)
+                        </span>
+                      </div>
+                      {r.wrong && (
+                        <div style={{ fontSize: 11, color: "#d4644a", marginTop: 3, overflowWrap: "anywhere" }}>
+                          틀린 단어: {r.wrong}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 /* ───────────────── MAIN APP ───────────────── */
 export default function VocabApp() {
   // 로그인 세션 (localStorage에 저장되어 새로고침해도 유지)
@@ -927,8 +1059,9 @@ export default function VocabApp() {
 
   // 로그인 처리: 세션 저장 + 서버 즐겨찾기 반영
   const handleLogin = (u) => {
-    setUser({ id: u.id, name: u.name });
-    try { localStorage.setItem("vocab-user", JSON.stringify({ id: u.id, name: u.name })); } catch {}
+    const session = { id: u.id, name: u.name, role: u.role || "" };
+    setUser(session);
+    try { localStorage.setItem("vocab-user", JSON.stringify(session)); } catch {}
     setStarred(new Set(u.stars || []));
     starsSyncReadyRef.current = true;
   };
@@ -952,6 +1085,10 @@ export default function VocabApp() {
       if (res.ok) {
         setStarred(new Set(res.stars || []));
         starsSyncReadyRef.current = true;
+        // 이름/역할이 시트에서 바뀌었을 수 있으니 세션 갱신
+        const session = { id: user.id, name: res.name, role: res.role || "" };
+        setUser(session);
+        try { localStorage.setItem("vocab-user", JSON.stringify(session)); } catch {}
       } else {
         handleLogout(); // 삭제된 회원 등
       }
@@ -1254,7 +1391,8 @@ export default function VocabApp() {
 
         {/* 모드 탭 */}
         <div className="mode-strip">
-          {[["list","📖 단어장"],["card","🃏 카드 학습"],["test","🎯 단어퀴즈"],["cardtest","⚡ 깜빡이테스트"]].map(([k,l]) => (
+          {[["list","📖 단어장"],["card","🃏 카드 학습"],["test","🎯 단어퀴즈"],["cardtest","⚡ 깜빡이테스트"],
+            ...(user.role === "teacher" ? [["dashboard","📊 학습현황"]] : [])].map(([k,l]) => (
             <button key={k} className={`tab-btn ${mode===k?"active":""}`}
               onClick={() => { setMode(k); if(k==="card") startCards(); }}
               style={{ whiteSpace: "nowrap" }}
@@ -1394,6 +1532,11 @@ export default function VocabApp() {
         {mode === "test" && (
           <MCQTest allWords={allWords} allSections={allSections} key={activeTabIdx}
             user={user} tabName={tabs[activeTabIdx]?.name || ""} />
+        )}
+
+        {/* TEACHER DASHBOARD */}
+        {mode === "dashboard" && user.role === "teacher" && (
+          <TeacherDashboard user={user} />
         )}
       </div>
 
