@@ -7,6 +7,9 @@ const SPREADSHEET_ID = "1CLfo4ck7LOVhoszNnArqCe_5qoKLNyx-z-Soa755X20";
 // 지문번호 | 영단어 | 한글뜻 | 유의어 | 반의어 | 영어오답1 | 영어오답2 | 영어오답3 | 영어오답4 | 한글오답1 | 한글오답2 | 한글오답3 | 한글오답4
 // 유의어/반의어가 없는 단어는 해당 칸을 비워두면 됨. 여러 개면 쉼표(,)로 구분.
 
+// 단어장이 아닌 내부 데이터 시트 (doGet 단어 목록에서 제외)
+const DATA_SHEETS = ["회원", "학습기록"];
+
 function doGet() {
   const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
   const sheets = ss.getSheets();
@@ -14,6 +17,7 @@ function doGet() {
   const result = {
     sheets: sheets
       .map(function(sheet) {
+        if (DATA_SHEETS.indexOf(sheet.getName()) !== -1) return null;
         const data = sheet.getDataRange().getValues();
         if (data.length < 2) return null;
 
@@ -87,4 +91,117 @@ function doGet() {
   return ContentService
     .createTextOutput(JSON.stringify(result))
     .setMimeType(ContentService.MimeType.JSON);
+}
+
+/* ───────────────── 회원 / 학습기록 (doPost) ─────────────────
+ * 요청: fetch(URL, { method: "POST", body: JSON.stringify({ action, ... }) })
+ * action:
+ *  - signup    { id, pw, name }
+ *  - login     { id, pw }                      → { ok, name, stars }
+ *  - getUser   { id }                          → { ok, name, stars } (세션 복원용)
+ *  - saveStars { id, stars: ["word", ...] }
+ *  - saveResult{ id, result: { tab, type, direction, score, total, wrong: ["word", ...] } }
+ */
+
+function jsonOut(obj) {
+  return ContentService
+    .createTextOutput(JSON.stringify(obj))
+    .setMimeType(ContentService.MimeType.JSON);
+}
+
+// 회원 시트: 아이디 | 비밀번호 | 이름 | 가입일 | 즐겨찾기(쉼표구분)
+function getMemberSheet(ss) {
+  var sh = ss.getSheetByName("회원");
+  if (!sh) {
+    sh = ss.insertSheet("회원");
+    sh.appendRow(["아이디", "비밀번호", "이름", "가입일", "즐겨찾기"]);
+  }
+  return sh;
+}
+
+// 학습기록 시트: 날짜 | 아이디 | 이름 | 탭 | 유형 | 점수 | 총문제 | 정답률 | 틀린단어
+function getRecordSheet(ss) {
+  var sh = ss.getSheetByName("학습기록");
+  if (!sh) {
+    sh = ss.insertSheet("학습기록");
+    sh.appendRow(["날짜", "아이디", "이름", "탭", "유형", "점수", "총문제", "정답률", "틀린단어"]);
+  }
+  return sh;
+}
+
+function findMemberRow(sh, id) {
+  var data = sh.getDataRange().getValues();
+  for (var r = 1; r < data.length; r++) {
+    if (String(data[r][0]).trim() === id) return { row: r + 1, data: data[r] };
+  }
+  return null;
+}
+
+function doPost(e) {
+  // 동시 쓰기 충돌 방지
+  var lock = LockService.getScriptLock();
+  lock.tryLock(10000);
+  try {
+    var body = JSON.parse(e.postData.contents);
+    var action = body.action;
+    var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    var members = getMemberSheet(ss);
+
+    if (action === "signup") {
+      var id = String(body.id || "").trim();
+      var pw = String(body.pw || "").trim();
+      var name = String(body.name || "").trim();
+      if (!id || !pw || !name) return jsonOut({ ok: false, error: "아이디, 비밀번호, 이름을 모두 입력해주세요." });
+      if (findMemberRow(members, id)) return jsonOut({ ok: false, error: "이미 사용 중인 아이디입니다." });
+      members.appendRow([id, pw, name, new Date(), ""]);
+      return jsonOut({ ok: true, name: name, stars: [] });
+    }
+
+    if (action === "login") {
+      var m = findMemberRow(members, String(body.id || "").trim());
+      if (!m || String(m.data[1]).trim() !== String(body.pw || "").trim()) {
+        return jsonOut({ ok: false, error: "아이디 또는 비밀번호가 올바르지 않습니다." });
+      }
+      var stars = String(m.data[4] || "").split(",").map(function(s) { return s.trim(); }).filter(Boolean);
+      return jsonOut({ ok: true, name: String(m.data[2]), stars: stars });
+    }
+
+    // 저장된 세션 복원용 (비밀번호 없이 이름/즐겨찾기만 반환)
+    if (action === "getUser") {
+      var mg = findMemberRow(members, String(body.id || "").trim());
+      if (!mg) return jsonOut({ ok: false, error: "회원을 찾을 수 없습니다." });
+      var gStars = String(mg.data[4] || "").split(",").map(function(s) { return s.trim(); }).filter(Boolean);
+      return jsonOut({ ok: true, name: String(mg.data[2]), stars: gStars });
+    }
+
+    if (action === "saveStars") {
+      var m2 = findMemberRow(members, String(body.id || "").trim());
+      if (!m2) return jsonOut({ ok: false, error: "회원을 찾을 수 없습니다." });
+      var list = Array.isArray(body.stars) ? body.stars : [];
+      members.getRange(m2.row, 5).setValue(list.join(","));
+      return jsonOut({ ok: true });
+    }
+
+    if (action === "saveResult") {
+      var m3 = findMemberRow(members, String(body.id || "").trim());
+      if (!m3) return jsonOut({ ok: false, error: "회원을 찾을 수 없습니다." });
+      var r = body.result || {};
+      var total = Number(r.total) || 0;
+      var score = Number(r.score) || 0;
+      var pct = total > 0 ? Math.round(score / total * 100) + "%" : "";
+      getRecordSheet(ss).appendRow([
+        new Date(), String(body.id).trim(), String(m3.data[2]),
+        String(r.tab || ""), String(r.type || ""),
+        score, total, pct,
+        (Array.isArray(r.wrong) ? r.wrong : []).join(", "),
+      ]);
+      return jsonOut({ ok: true });
+    }
+
+    return jsonOut({ ok: false, error: "알 수 없는 요청입니다." });
+  } catch (err) {
+    return jsonOut({ ok: false, error: "서버 오류: " + err });
+  } finally {
+    lock.releaseLock();
+  }
 }

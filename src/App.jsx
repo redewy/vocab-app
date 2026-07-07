@@ -25,7 +25,22 @@ const DEFAULT_WORDS = [
 /* ───────────────── EMPTY INITIAL STATE ───────────────── */
 const DEFAULT_TABS = [];
 
-const ACCESS_CODE = "141";
+// 회원 API (GAS doPost) — action: signup | login | getUser | saveStars | saveResult
+async function postApi(action, payload) {
+  const url = import.meta.env?.VITE_SHEET_API_URL || "";
+  if (!url) return { ok: false, error: "서버 주소가 설정되지 않았습니다." };
+  try {
+    const res = await fetch(url, {
+      method: "POST",
+      // Content-Type을 text/plain으로 보내야 GAS에서 CORS preflight 없이 처리됨
+      body: JSON.stringify({ action, ...payload }),
+    });
+    return await res.json();
+  } catch (e) {
+    console.error(e);
+    return { ok: false, error: "서버에 연결하지 못했습니다. 잠시 후 다시 시도해주세요." };
+  }
+}
 
 // ① 스프레드시트 > 확장 프로그램 > Apps Script에 gas-code.js 내용 붙여넣기
 // ② [배포] → [새 배포] → 유형: 웹 앱, 액세스: 모든 사용자 → 배포
@@ -169,7 +184,7 @@ async function playWrong() {
 }
 
 /* ───────────────── MCQ TEST (객관식 4지선다) ───────────────── */
-function MCQTest({ allWords, allSections }) {
+function MCQTest({ allWords, allSections, user, tabName }) {
   const [testSections, setTestSections] = useState(new Set(allSections));
   const [direction, setDirection]       = useState("kor"); // kor=영단어→뜻, eng=뜻→영단어
   const [testType, setTestType]         = useState("meaning"); // meaning|synonym|antonym
@@ -259,7 +274,19 @@ function MCQTest({ allWords, allSections }) {
 
   const next = () => {
     if (qIdx + 1 < deck.length) { setQIdx(i => i + 1); setChosen(null); }
-    else setScreen("done");
+    else {
+      setScreen("done");
+      // 회원 학습기록 저장 (실패해도 앱 흐름에는 영향 없음)
+      if (user) {
+        const typeLabel = testType === "synonym" ? "유의어"
+          : testType === "antonym" ? "반의어"
+          : direction === "kor" ? "영단어→뜻" : "뜻→영단어";
+        postApi("saveResult", {
+          id: user.id,
+          result: { tab: tabName, type: typeLabel, score, total: deck.length, wrong: wrongList.map(w => w.w) },
+        });
+      }
+    }
   };
 
   /* ── setup ── */
@@ -626,20 +653,43 @@ function CardTestMode({ allWords, allSections }) {
   );
 }
 
-/* ───────────────── LOGIN ───────────────── */
+/* ───────────────── LOGIN / SIGNUP ───────────────── */
 function LoginScreen({ onLogin }) {
-  const [code, setCode] = useState("");
-  const [error, setError] = useState(false);
-  const [shake, setShake] = useState(false);
+  const [tab, setTab]       = useState("login"); // login | signup
+  const [id, setId]         = useState("");
+  const [pw, setPw]         = useState("");
+  const [name, setName]     = useState("");
+  const [error, setError]   = useState("");
+  const [busy, setBusy]     = useState(false);
+  const [shake, setShake]   = useState(false);
 
-  const handleSubmit = () => {
-    if (code.trim().toLowerCase() === ACCESS_CODE) {
-      onLogin();
-    } else {
-      setError(true);
-      setShake(true);
-      setTimeout(() => setShake(false), 500);
+  const fail = (msg) => {
+    setError(msg);
+    setShake(true);
+    setTimeout(() => setShake(false), 500);
+  };
+
+  const handleSubmit = async () => {
+    if (busy) return;
+    const tid = id.trim(), tpw = pw.trim(), tname = name.trim();
+    if (!tid || !tpw || (tab === "signup" && !tname)) {
+      fail(tab === "signup" ? "아이디, 비밀번호, 이름을 모두 입력해주세요." : "아이디와 비밀번호를 입력해주세요.");
+      return;
     }
+    setBusy(true);
+    setError("");
+    const res = tab === "signup"
+      ? await postApi("signup", { id: tid, pw: tpw, name: tname })
+      : await postApi("login",  { id: tid, pw: tpw });
+    setBusy(false);
+    if (!res.ok) { fail(res.error || "요청에 실패했습니다."); return; }
+    onLogin({ id: tid, name: res.name, stars: res.stars || [] });
+  };
+
+  const inputStyle = {
+    width: "100%", padding: "12px 16px", border: "1.5px solid #d8dee8",
+    borderRadius: 10, fontSize: 15, outline: "none", background: "#fff", color: "#172033",
+    fontFamily: "var(--font-sans)", boxSizing: "border-box",
   };
 
   return (
@@ -647,24 +697,35 @@ function LoginScreen({ onLogin }) {
       <div className="login-card" style={{ animation: shake ? "shakeX 0.5s" : "fadeUp 0.6s ease-out" }}>
         <img className="brand-logo" src="/oneforone-logo.jpeg" alt="원포원영어학원" style={{ width: 210, margin: "0 auto 22px" }} />
         <div style={{ width: 44, height: 3, background: "#214f2d", borderRadius: 999, margin: "0 auto 24px" }} />
-        <p style={{ fontSize: 14, color: "#657083", marginBottom: 28 }}>학원에서 배부한 코드를 입력하세요</p>
-        <div style={{ display: "flex", gap: 8, justifyContent: "center", maxWidth: 340, margin: "0 auto" }}>
-          <input type="password" value={code}
-            onChange={e => { setCode(e.target.value); setError(false); }}
-            onKeyDown={e => e.key === "Enter" && handleSubmit()}
-            placeholder="접속 코드"
-            style={{
-              flex: 1, minWidth: 0, padding: "12px 16px", border: `1.5px solid ${error ? "#d4644a" : "#d8dee8"}`,
-              borderRadius: 10, fontSize: 15, outline: "none", background: "#fff", color: "#172033",
-              fontFamily: "var(--font-mono)",
-            }}
-          />
-          <button onClick={handleSubmit} style={{
-            padding: "12px 24px", border: "none", borderRadius: 10, background: "#172033",
-            color: "#ffffff", fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: "var(--font-sans)", minWidth: 72, whiteSpace: "nowrap",
-          }}>입장</button>
+        {/* 로그인 / 회원가입 탭 */}
+        <div style={{ display: "flex", gap: 0, maxWidth: 340, margin: "0 auto 20px", borderRadius: 10, overflow: "hidden", border: "1.5px solid #d8dee8" }}>
+          {[["login","로그인"],["signup","회원가입"]].map(([k,l]) => (
+            <button key={k} onClick={() => { setTab(k); setError(""); }}
+              style={{ flex: 1, padding: "10px 0", border: "none", cursor: "pointer", fontSize: 14, fontWeight: 700,
+                fontFamily: "var(--font-sans)", background: tab===k ? "#172033" : "#fff", color: tab===k ? "#fff" : "#657083" }}>
+              {l}
+            </button>
+          ))}
         </div>
-        {error && <p style={{ color: "#d4644a", fontSize: 13, marginTop: 12 }}>코드가 올바르지 않습니다.</p>}
+        <div style={{ display: "flex", flexDirection: "column", gap: 10, maxWidth: 340, margin: "0 auto" }}>
+          <input value={id} onChange={e => { setId(e.target.value); setError(""); }}
+            onKeyDown={e => e.key === "Enter" && handleSubmit()}
+            placeholder="아이디" autoComplete="username" style={inputStyle} />
+          <input type="password" value={pw} onChange={e => { setPw(e.target.value); setError(""); }}
+            onKeyDown={e => e.key === "Enter" && handleSubmit()}
+            placeholder="비밀번호" autoComplete={tab==="signup" ? "new-password" : "current-password"} style={inputStyle} />
+          {tab === "signup" && (
+            <input value={name} onChange={e => { setName(e.target.value); setError(""); }}
+              onKeyDown={e => e.key === "Enter" && handleSubmit()}
+              placeholder="이름" autoComplete="name" style={inputStyle} />
+          )}
+          <button onClick={handleSubmit} disabled={busy} style={{
+            padding: "13px 24px", border: "none", borderRadius: 10, background: "#172033",
+            color: "#ffffff", fontSize: 14, fontWeight: 700, cursor: busy ? "wait" : "pointer",
+            fontFamily: "var(--font-sans)", opacity: busy ? 0.6 : 1, marginTop: 4,
+          }}>{busy ? "처리 중..." : tab === "signup" ? "가입하고 시작하기" : "로그인"}</button>
+        </div>
+        {error && <p style={{ color: "#d4644a", fontSize: 13, marginTop: 14 }}>{error}</p>}
       </div>
     </div>
   );
@@ -820,7 +881,14 @@ function SectionChips({ sections, allWords, selected, onToggle, onAll, onNone, l
 
 /* ───────────────── MAIN APP ───────────────── */
 export default function VocabApp() {
-  const [loggedIn, setLoggedIn] = useState(false);
+  // 로그인 세션 (localStorage에 저장되어 새로고침해도 유지)
+  const [user, setUser] = useState(() => {
+    try {
+      const saved = localStorage.getItem("vocab-user");
+      return saved ? JSON.parse(saved) : null;
+    } catch { return null; }
+  });
+  const starsSyncReadyRef = useRef(false); // 서버 즐겨찾기 로드 완료 후에만 서버로 동기화
   const [tabs, setTabs] = useState([]);
   const [activeTabIdx, setActiveTabIdx] = useState(0);
   const [allWords, setAllWords] = useState([]);
@@ -852,10 +920,53 @@ export default function VocabApp() {
 
   const allSections = useMemo(() => getSections(allWords), [allWords]);
 
-  // ⭐ 즐겨찾기 localStorage 자동 저장
+  // ⭐ 즐겨찾기 localStorage 자동 저장 (오프라인 캐시)
   useEffect(() => {
     try { localStorage.setItem("vocab-starred", JSON.stringify([...starred])); } catch {}
   }, [starred]);
+
+  // 로그인 처리: 세션 저장 + 서버 즐겨찾기 반영
+  const handleLogin = (u) => {
+    setUser({ id: u.id, name: u.name });
+    try { localStorage.setItem("vocab-user", JSON.stringify({ id: u.id, name: u.name })); } catch {}
+    setStarred(new Set(u.stars || []));
+    starsSyncReadyRef.current = true;
+  };
+
+  const handleLogout = () => {
+    setUser(null);
+    starsSyncReadyRef.current = false;
+    setStarred(new Set());
+    try {
+      localStorage.removeItem("vocab-user");
+      localStorage.removeItem("vocab-starred");
+    } catch {}
+  };
+
+  // 새로고침 등 저장된 세션 복원 시 서버에서 즐겨찾기 다시 로드
+  useEffect(() => {
+    if (!user) return;
+    let cancelled = false;
+    postApi("getUser", { id: user.id }).then(res => {
+      if (cancelled) return;
+      if (res.ok) {
+        setStarred(new Set(res.stars || []));
+        starsSyncReadyRef.current = true;
+      } else {
+        handleLogout(); // 삭제된 회원 등
+      }
+    });
+    return () => { cancelled = true; };
+  }, []); // 최초 마운트 시에만
+
+  // ⭐ 즐겨찾기 서버 동기화 (1.2초 디바운스)
+  useEffect(() => {
+    if (!user || !starsSyncReadyRef.current) return;
+    const t = setTimeout(() => {
+      postApi("saveStars", { id: user.id, stars: [...starred] });
+    }, 1200);
+    return () => clearTimeout(t);
+  }, [starred, user]);
 
   const resetWordState = (words) => {
     const secs = new Set(getSections(words));
@@ -1026,7 +1137,7 @@ export default function VocabApp() {
     if (fileRef.current) fileRef.current.value = "";
   };
 
-  if (!loggedIn) return <LoginScreen onLogin={() => setLoggedIn(true)} />;
+  if (!user) return <LoginScreen onLogin={handleLogin} />;
   if (showPrint) return <PrintView tabs={tabs} activeTabIdx={activeTabIdx} onClose={() => setShowPrint(false)} />;
 
   return (
@@ -1115,6 +1226,8 @@ export default function VocabApp() {
             {/* 단어 업로드 버튼 — 숨김 처리 (기능 유지) */}
             {false && <button onClick={() => setShowUpload(true)} className="pill">📥 단어 업로드</button>}
             <button onClick={() => setShowPrint(true)} className="pill">🖨 프린트</button>
+            <span style={{ fontSize: 12, color: "#657083", fontWeight: 700, marginLeft: 4 }}>👤 {user.name}님</span>
+            <button onClick={handleLogout} className="pill">로그아웃</button>
           </div>
         </div>
         {uploadMsg && (
@@ -1279,7 +1392,8 @@ export default function VocabApp() {
 
         {/* TEST — 객관식 4지선다 */}
         {mode === "test" && (
-          <MCQTest allWords={allWords} allSections={allSections} key={activeTabIdx} />
+          <MCQTest allWords={allWords} allSections={allSections} key={activeTabIdx}
+            user={user} tabName={tabs[activeTabIdx]?.name || ""} />
         )}
       </div>
 
