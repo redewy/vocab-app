@@ -50,10 +50,16 @@ function normalizeSheetWords(data) {
       const kw = Array.isArray(item.kw) && item.kw.length > 0
         ? item.kw.map(str).filter(Boolean)
         : [item["한글오답1"], item["한글오답2"], item["한글오답3"], item["한글오답4"]].map(str).filter(Boolean);
+      // 유의어/반의어: 없는 단어는 빈 배열
+      const splitList = (v) => str(v).split(/[,、\/]/).map(str).filter(Boolean);
+      const syn = Array.isArray(item.syn) ? item.syn.map(str).filter(Boolean) : splitList(item["유의어"]);
+      const ant = Array.isArray(item.ant) ? item.ant.map(str).filter(Boolean) : splitList(item["반의어"]);
       return {
         s: isNaN(Number(section)) ? str(section) : Number(section),
         w: str(word),
         m: str(meaning),
+        syn, // 유의어 (없으면 빈 배열)
+        ant, // 반의어 (없으면 빈 배열)
         ew, // 영어 오답 보기 (뜻→영단어 문제용)
         kw, // 한글 오답 보기 (영단어→뜻 문제용)
       };
@@ -166,6 +172,7 @@ async function playWrong() {
 function MCQTest({ allWords, allSections }) {
   const [testSections, setTestSections] = useState(new Set(allSections));
   const [direction, setDirection]       = useState("kor"); // kor=영단어→뜻, eng=뜻→영단어
+  const [testType, setTestType]         = useState("meaning"); // meaning|synonym|antonym
   const [wordCount, setWordCount]       = useState(20);   // 10|20|30|40|50|"all"
   const [screen, setScreen]             = useState("setup");
   const [deck, setDeck]                 = useState([]);   // [{word, choices, answerIdx}]
@@ -175,16 +182,37 @@ function MCQTest({ allWords, allSections }) {
   const [wrongList, setWrongList]       = useState([]);
 
   const filteredWords = useMemo(
-    () => allWords.filter(w => testSections.has(w.s)),
-    [allWords, testSections]
+    () => allWords.filter(w => testSections.has(w.s)
+      && (testType === "synonym" ? w.syn?.length > 0
+        : testType === "antonym" ? w.ant?.length > 0
+        : true)),
+    [allWords, testSections, testType]
   );
 
   const toggleSec = (s) => setTestSections(prev => {
     const n = new Set(prev); n.has(s) ? n.delete(s) : n.add(s); return n;
   });
 
-  const buildDeck = (words, dir) => {
+  const buildDeck = (words, dir, type) => {
     const shuffled = shuffle(words);
+
+    if (type === "synonym" || type === "antonym") {
+      const field = type === "synonym" ? "syn" : "ant";
+      return shuffled.map(word => {
+        const correct = shuffle(word[field])[0];
+        const fallbackPool = words
+          .filter(w => w.w !== word.w)
+          .flatMap(w => w[field] || []);
+        const wrongs = [];
+        for (const fb of shuffle(fallbackPool)) {
+          if (wrongs.length >= 3) break;
+          if (fb !== correct && !wrongs.includes(fb)) wrongs.push(fb);
+        }
+        const choices = shuffle([correct, ...wrongs.slice(0, 3)]);
+        return { word, choices, answerIdx: choices.indexOf(correct) };
+      });
+    }
+
     return shuffled.map(word => {
       // 오답 보기: 시트에서 가져온 값 우선, 부족하면 다른 단어에서 랜덤 보충
       const rawWrong = dir === "kor"
@@ -208,14 +236,14 @@ function MCQTest({ allWords, allSections }) {
     if (filteredWords.length < 2) return;
     const count = wordCount === "all" ? filteredWords.length : Math.min(wordCount, filteredWords.length);
     const selected = shuffle([...filteredWords]).slice(0, count);
-    setDeck(buildDeck(selected, dir));
+    setDeck(buildDeck(selected, dir, testType));
     setQIdx(0); setChosen(null); setScore(0); setWrongList([]);
     setScreen("quiz");
   };
 
   const retryWrong = () => {
     if (wrongList.length === 0) return;
-    setDeck(buildDeck(wrongList, direction));
+    setDeck(buildDeck(wrongList, direction, testType));
     setQIdx(0); setChosen(null); setScore(0); setWrongList([]);
     setScreen("quiz");
   };
@@ -242,6 +270,17 @@ function MCQTest({ allWords, allSections }) {
           selected={testSections} onToggle={toggleSec}
           onAll={() => setTestSections(new Set(allSections))} onNone={() => setTestSections(new Set())} />
         <div style={{ marginBottom: 20 }}>
+          <div style={{ fontSize: 11, color: "#a0978a", marginBottom: 8, fontWeight: 500 }}>문제 유형</div>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            <button className={`pill ${testType==="meaning"?"active":""}`}
+              onClick={() => setTestType("meaning")}>단어 · 뜻</button>
+            <button className={`pill ${testType==="synonym"?"active":""}`}
+              onClick={() => setTestType("synonym")}>유의어</button>
+            <button className={`pill ${testType==="antonym"?"active":""}`}
+              onClick={() => setTestType("antonym")}>반의어</button>
+          </div>
+        </div>
+        <div style={{ marginBottom: 20 }}>
           <div style={{ fontSize: 11, color: "#a0978a", marginBottom: 8, fontWeight: 500 }}>문제 수 (랜덤)</div>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
             {[10, 20, 30, 40, 50, 100, "all"].map(n => (
@@ -252,19 +291,26 @@ function MCQTest({ allWords, allSections }) {
             ))}
           </div>
         </div>
-        <div style={{ marginBottom: 20 }}>
-          <div style={{ fontSize: 11, color: "#a0978a", marginBottom: 8, fontWeight: 500 }}>문제 방향</div>
-          <div style={{ display: "flex", gap: 8 }}>
-            <button className={`pill ${direction==="kor"?"active":""}`}
-              onClick={() => setDirection("kor")}>영단어 → 뜻</button>
-            <button className={`pill ${direction==="eng"?"active":""}`}
-              onClick={() => setDirection("eng")}>뜻 → 영단어</button>
+        {testType === "meaning" && (
+          <div style={{ marginBottom: 20 }}>
+            <div style={{ fontSize: 11, color: "#a0978a", marginBottom: 8, fontWeight: 500 }}>문제 방향</div>
+            <div style={{ display: "flex", gap: 8 }}>
+              <button className={`pill ${direction==="kor"?"active":""}`}
+                onClick={() => setDirection("kor")}>영단어 → 뜻</button>
+              <button className={`pill ${direction==="eng"?"active":""}`}
+                onClick={() => setDirection("eng")}>뜻 → 영단어</button>
+            </div>
           </div>
-        </div>
+        )}
         <button className="action-btn primary" disabled={filteredWords.length < 2}
           onClick={() => startTest(direction)}>
           테스트 시작 ({wordCount === "all" ? filteredWords.length : Math.min(wordCount, filteredWords.length)}문제)
         </button>
+        {testType !== "meaning" && filteredWords.length < 2 && (
+          <p style={{ fontSize: 12, color: "#d4644a", marginTop: 10 }}>
+            선택한 범위에 {testType === "synonym" ? "유의어" : "반의어"} 데이터가 있는 단어가 부족합니다.
+          </p>
+        )}
       </div>
     );
   }
@@ -346,7 +392,11 @@ function MCQTest({ allWords, allSections }) {
 
   /* ── quiz ── */
   const q = deck[qIdx];
-  const isKor = direction === "kor";
+  const isKor = testType === "meaning" ? direction === "kor" : true; // 유의어/반의어는 항상 영단어 제시
+  const promptLabel = testType === "synonym" ? "Word (유의어를 고르세요)"
+    : testType === "antonym" ? "Word (반의어를 고르세요)"
+    : (isKor ? "Word" : "뜻");
+  const choiceIsWord = testType === "meaning" ? !isKor : true; // 유의어/반의어 보기는 영단어체
   return (
     <div style={{ animation: "fadeUp 0.3s ease-out", maxWidth: 560, margin: "0 auto" }}>
       {/* 진행 바 */}
@@ -360,7 +410,7 @@ function MCQTest({ allWords, allSections }) {
       {/* 문제 */}
       <div style={{ background: "#fff", borderRadius: 16, padding: "32px 28px", marginBottom: 16, textAlign: "center", boxShadow: "0 2px 12px rgba(44,40,36,0.07)" }}>
         <div style={{ fontSize: 11, color: "#a0978a", letterSpacing: 3, marginBottom: 12, textTransform: "uppercase" }}>
-          {isKor ? "Word" : "뜻"}
+          {promptLabel}
         </div>
         <div style={{ fontSize: isKor ? 28 : 20, fontWeight: 700, color: "#2c2824",
           fontFamily: isKor ? "'JetBrains Mono',monospace" : "inherit", wordBreak: "break-word", lineHeight: 1.4 }}>
@@ -384,7 +434,7 @@ function MCQTest({ allWords, allSections }) {
                 borderRadius: 12, cursor: chosen !== null ? "default" : "pointer",
                 fontSize: 15, color, fontWeight: isChosen || (chosen !== null && isCorrect) ? 700 : 400,
                 textAlign: "left", transition: "all 0.15s",
-                fontFamily: !isKor ? "'JetBrains Mono',monospace" : "inherit",
+                fontFamily: choiceIsWord ? "'JetBrains Mono',monospace" : "inherit",
                 display: "flex", alignItems: "center", gap: 12 }}>
               <span style={{ minWidth: 24, height: 24, borderRadius: "50%",
                 background: chosen !== null && isCorrect ? "#5a9a6a" : chosen !== null && isChosen ? "#d4644a" : "#f0ece5",
