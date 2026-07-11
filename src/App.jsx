@@ -293,7 +293,7 @@ function MCQTest({ allWords, allSections, user, tabName }) {
   if (screen === "setup") {
     return (
       <div style={{ animation: "fadeUp 0.4s ease-out" }}>
-        <SectionChips label="✏️ 테스트 범위" sections={allSections} allWords={allWords}
+        <SectionChips variant="card" label="✏️ 테스트 범위" sections={allSections} allWords={allWords}
           selected={testSections} onToggle={toggleSec}
           onAll={() => setTestSections(new Set(allSections))} onNone={() => setTestSections(new Set())} />
         <div style={{ marginBottom: 20 }}>
@@ -626,7 +626,7 @@ function CardTestMode({ allWords, allSections }) {
   const actualCount = wordCount === "all" ? filteredWords.length : Math.min(wordCount, filteredWords.length);
   return (
     <div style={{ animation: "fadeUp 0.4s ease-out" }}>
-      <SectionChips label="📂 범위 선택" sections={allSections} allWords={allWords} selected={testSections}
+      <SectionChips variant="card" label="📂 범위 선택" sections={allSections} allWords={allWords} selected={testSections}
         onToggle={toggleSec} onAll={() => setTestSections(new Set(allSections))} onNone={() => setTestSections(new Set())} />
       <div style={{ marginBottom: 20 }}>
         <div style={{ fontSize: 11, color: "#a0978a", marginBottom: 8, fontWeight: 500 }}>테스트 단어 수</div>
@@ -861,7 +861,31 @@ function PrintView({ tabs, activeTabIdx, onClose }) {
 }
 
 /* ───────────────── SECTION CHIPS ───────────────── */
-function SectionChips({ sections, allWords, selected, onToggle, onAll, onNone, label }) {
+function SectionChips({ sections, allWords, selected, onToggle, onAll, onNone, label, variant = "pill" }) {
+  if (variant === "card") {
+    return (
+      <div style={{ marginBottom: 16 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10, flexWrap: "wrap", gap: 8 }}>
+          <div style={{ fontSize: 13, color: "#4f5b6b", fontWeight: 700, display: "flex", alignItems: "center", gap: 6 }}>
+            {label}
+            <span style={{ fontSize: 12, color: "#a0978a", fontWeight: 500 }}>{selected.size}/{sections.length}</span>
+          </div>
+          <div style={{ display: "flex", gap: 6 }}>
+            <button className="pill" onClick={onAll} style={{ fontSize: 11 }}>전체</button>
+            <button className="pill" onClick={onNone} style={{ fontSize: 11 }}>해제</button>
+          </div>
+        </div>
+        <div className="chip-grid">
+          {sections.map(s => (
+            <button key={s} className={`section-chip ${selected.has(s) ? "active" : ""}`} onClick={() => onToggle(s)}>
+              <span className="chip-num">#{s}</span>
+              <span className="chip-count">{allWords.filter(w => w.s === s).length}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+    );
+  }
   return (
     <div style={{ marginBottom: 14 }}>
       {label && <div style={{ fontSize: 11, color: "#a0978a", marginBottom: 6, fontWeight: 500 }}>{label}</div>}
@@ -1293,9 +1317,9 @@ export default function VocabApp() {
         .pill{padding:8px 14px;border:1px solid #d8dee8;background:#fff;color:#657083;border-radius:999px;cursor:pointer;font-size:12px;font-family:var(--font-sans);font-weight:600;transition:all 0.16s ease;white-space:nowrap;box-shadow:0 1px 2px rgba(23,32,51,0.04)}
         .pill:hover{border-color:#2f7f7a;color:#2f7f7a;transform:translateY(-1px)}
         .pill.active{border-color:#172033;background:#172033;color:#fff;box-shadow:0 8px 22px rgba(23,32,51,0.16)}
-        .tab-btn{padding:13px 18px;border:none;background:transparent;color:#657083;font-size:14px;font-weight:700;cursor:pointer;border-bottom:3px solid transparent;transition:all 0.2s;font-family:var(--font-sans);position:relative}
-        .tab-btn:hover{color:#172033;background:rgba(47,127,122,0.05)}
-        .tab-btn.active{color:#172033;border-bottom-color:#2f7f7a;background:#fff}
+        .mode-chip{padding:10px 18px;border:1.5px solid #d8dee8;border-radius:10px;background:#fff;color:#454e5f;font-size:13px;font-weight:700;cursor:pointer;font-family:var(--font-sans);transition:all 0.15s}
+        .mode-chip:hover{border-color:#2f7f7a;color:#2f7f7a}
+        .mode-chip.active{background:#1d3b26;border-color:#1d3b26;color:#fff;box-shadow:0 8px 20px rgba(29,59,38,0.22)}
         .vocab-row{display:grid;grid-template-columns:40px minmax(0,1fr) minmax(0,1fr) minmax(0,0.85fr) minmax(0,0.85fr);align-items:center;padding:13px 18px;border-bottom:1px solid #edf0f5;transition:background 0.12s,transform 0.12s;gap:12px}
         .vocab-row:hover{background:#f7fbfb}
         .vocab-row span{min-width:0;overflow-wrap:anywhere}
@@ -1328,43 +1352,76 @@ export default function VocabApp() {
         .drop-zone:hover{border-color:#2f7f7a;background:#f2faf9}
         .section-card{background:#fff;border:1px solid #dfe5ee;border-radius:16px;overflow:hidden;box-shadow:0 10px 26px rgba(23,32,51,0.05)}
         .section-title{font-size:12px;font-weight:800;color:#2f7f7a;padding:10px 18px;background:#f2faf9;border-bottom:1px solid #d5e8e5;letter-spacing:1px}
-        .exam-tabs{display:flex;gap:4px;padding-top:16px;flex-wrap:wrap;align-items:flex-end}
-        .exam-tab{padding:9px 18px;border:1px solid #d8dee8;border-bottom:none;background:#f6f8fb;color:#657083;border-radius:10px 10px 0 0;cursor:pointer;font-size:13px;font-weight:500;font-family:var(--font-sans);white-space:nowrap;transition:all 0.15s;position:relative}
-        .exam-tab.active{border-color:#2f7f7a;background:#fff;color:#172033;font-weight:800;z-index:2}
-        .mode-strip{display:flex;gap:0;border:1px solid #d8dee8;border-top-color:#2f7f7a;margin-bottom:16px;background:#fff;overflow-x:auto;border-radius:0 0 14px 14px;box-shadow:0 8px 18px rgba(23,32,51,0.03)}
+        .top-bar{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px}
+        .brand-block{display:flex;align-items:center;gap:10px;min-width:0}
+        .logo-icon{width:40px;height:26px;flex-shrink:0;border-radius:7px;background-image:url(/oneforone-logo.jpeg);background-size:68px 54px;background-position:-14px -4px;background-repeat:no-repeat;border:1px solid #e3e7ee}
+        .brand-text{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;min-width:0}
+        .brand-name{font-size:19px;font-weight:800;color:#1a2233;white-space:nowrap}
+        .brand-tag{font-size:11px;letter-spacing:2px;color:#a3abb8;font-weight:700;white-space:nowrap}
+        .top-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+        .status-badge{font-size:12px;color:#657083;background:#f2f4f8;border:1px solid #dde2ea;border-radius:999px;padding:6px 14px;font-weight:600;white-space:nowrap}
+        .status-badge.error{color:#d4644a;background:#fdf5f3;border-color:#f4c7bd}
+        .icon-btn{width:34px;height:34px;border-radius:50%;border:1px solid #d8dee8;background:#fff;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;transition:all 0.15s;padding:0}
+        .icon-btn:hover{border-color:#2f7f7a;transform:translateY(-1px)}
+        .icon-btn:disabled{opacity:0.4;cursor:not-allowed}
+        .user-name{font-size:12px;color:#454e5f;font-weight:700;white-space:nowrap}
+        .logout-btn{padding:7px 14px;border:1px solid #d8dee8;border-radius:8px;background:#fff;color:#454e5f;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;transition:all 0.15s;font-family:var(--font-sans)}
+        .logout-btn:hover{border-color:#2f7f7a;color:#2f7f7a}
+        .header-divider{width:100%;height:1px;background:#e8ebf1;margin:16px 0 0}
+        .exam-tabs{display:flex;gap:22px;padding-top:16px;flex-wrap:wrap;align-items:baseline;border-bottom:1px solid #edf0f5}
+        .exam-tab{border:none;background:transparent;cursor:pointer;font-family:var(--font-sans);font-size:15px;font-weight:600;color:#a3abb8;padding:0 0 12px;position:relative;white-space:nowrap;transition:color 0.15s}
+        .exam-tab:hover{color:#657083}
+        .exam-tab-count{font-size:13px;font-weight:500;opacity:0.7;margin-left:2px}
+        .exam-tab.active{color:#1a2233;font-weight:800}
+        .exam-tab.active::after{content:"";position:absolute;left:0;right:0;bottom:-1px;height:2px;background:#214f2d;border-radius:2px}
+        .mode-strip{display:flex;gap:8px;margin:16px 0;flex-wrap:wrap}
+        .chip-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(56px,1fr));gap:6px}
+        .section-chip{background:#fff;border:1.5px solid #d8dee8;border-radius:8px;padding:5px 4px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:1px;transition:all 0.15s;font-family:var(--font-sans)}
+        .section-chip:hover{border-color:#2f7f7a}
+        .section-chip.active{background:#1d3b26;border-color:#1d3b26;box-shadow:0 4px 12px rgba(29,59,38,0.22)}
+        .chip-num{font-size:12px;font-weight:800;color:#344153}
+        .section-chip.active .chip-num{color:#fff}
+        .chip-count{font-size:10px;color:#a0978a}
+        .section-chip.active .chip-count{color:rgba(255,255,255,0.7)}
         @media(max-width:700px){
           .app-frame{padding:18px 12px 0}
           .header-panel{border-radius:18px;padding:20px 16px 0}
-          .header-panel .brand-logo{width:92px!important;height:56px!important}
-          .exam-tab{padding:8px 12px;font-size:12px}
+          .brand-name{font-size:16px}
+          .exam-tab{font-size:13px}
           .vocab-row{grid-template-columns:34px minmax(0,1fr);padding:12px 14px;font-size:13px;row-gap:3px}
           .vocab-row .vocab-cell{grid-column:2;color:#657083}
           .vocab-header{display:none}
           .card-container{height:240px}
-          .mode-strip{margin-inline:0;flex-wrap:wrap;border-radius:10px}
-          .mode-strip .tab-btn{flex:1 1 auto;min-width:0;font-size:12px;padding:10px 6px;text-align:center}
+          .mode-strip{flex-wrap:wrap}
+          .mode-strip .mode-chip{flex:1 1 auto;min-width:0;font-size:12px;padding:10px 6px;text-align:center}
         }
       `}</style>
 
       {/* Header */}
       <div className="app-frame">
         <div className="surface header-panel">
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 12 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 16, minWidth: 0 }}>
-            <img className="brand-logo" src="/oneforone-logo.jpeg" alt="원포원영어학원" style={{ width: 118, height: 72, flex: "0 0 auto" }} />
-            <div style={{ minWidth: 0 }}>
-              <div style={{ fontSize: 11, letterSpacing: 4, color: "#657083", marginBottom: 6, textTransform: "uppercase" }}>vocabulary</div>
-              <h1 style={{ fontFamily: "var(--font-sans)", fontSize: 28, fontWeight: 800, color: "#214f2d", letterSpacing: 0, margin: 0 }}>원포원영어학원</h1>
-              <p style={{ fontSize: 13, color: "#657083", marginTop: 6 }}>함께 걷는 영어, 원포원이 응원합니다</p>
+        <div className="top-bar">
+          <div className="brand-block">
+            <span className="logo-icon" role="img" aria-label="원포원영어학원 로고" />
+            <div className="brand-text">
+              <span className="brand-name">원포원영어학원</span>
+              <span className="brand-tag">VOCABULARY</span>
             </div>
           </div>
-          <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-            {SHEET_API_URL && <button onClick={loadSheetWords} disabled={sheetLoading} className="pill">{sheetLoading ? "불러오는 중..." : "🔄 시트 새로고침"}</button>}
+          <div className="top-actions">
+            {SHEET_API_URL && (
+              <span className={`status-badge ${sheetError ? "error" : ""}`}>
+                {sheetLoading ? "불러오는 중..." : sheetError ? "연동 오류" : "시트연동됨"}
+              </span>
+            )}
+            {SHEET_API_URL && (
+              <button onClick={loadSheetWords} disabled={sheetLoading} className="icon-btn" title="시트 새로고침" aria-label="시트 새로고침">🔄</button>
+            )}
             {/* 단어 업로드 버튼 — 숨김 처리 (기능 유지) */}
             {false && <button onClick={() => setShowUpload(true)} className="pill">📥 단어 업로드</button>}
-            <button onClick={() => setShowPrint(true)} className="pill">🖨 프린트</button>
-            <span style={{ fontSize: 12, color: "#657083", fontWeight: 700, marginLeft: 4 }}>👤 {user.name}님</span>
-            <button onClick={handleLogout} className="pill">로그아웃</button>
+            <button onClick={() => setShowPrint(true)} className="icon-btn" title="프린트" aria-label="프린트">🖨</button>
+            <span className="user-name">👤 {user.name}님</span>
+            <button onClick={handleLogout} className="logout-btn">로그아웃</button>
           </div>
         </div>
         {uploadMsg && (
@@ -1373,18 +1430,18 @@ export default function VocabApp() {
             <button onClick={() => setUploadMsg("")} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 16, color: "inherit" }}>✕</button>
           </div>
         )}
-        <div style={{ marginTop: 14, padding: "10px 14px", borderRadius: 12, background: sheetError ? "#fdf5f3" : "#f2faf9", color: sheetError ? "#d4644a" : "#456260", fontSize: 12, display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center", flexWrap: "wrap", border: `1px solid ${sheetError ? "#f4c7bd" : "#d5e8e5"}` }}>
-          <span>데이터: {sheetLoading ? "구글시트 불러오는 중..." : dataSource}</span>
-          {sheetError && <span>{sheetError}</span>}
-        </div>
-        <div style={{ width: "100%", height: 1, background: "linear-gradient(90deg, #2f7f7a, #d8dee8, transparent)", margin: "20px 0 0" }} />
+        {sheetError && (
+          <div style={{ marginTop: 12, padding: "10px 14px", borderRadius: 10, background: "#fdf5f3", color: "#d4644a", fontSize: 12, border: "1px solid #f4c7bd" }}>
+            {sheetError}
+          </div>
+        )}
+        <div className="header-divider" />
 
         {/* 단어 탭 */}
         <div className="exam-tabs">
           {tabs.map((tab, idx) => (
             <button key={idx} onClick={() => switchTab(idx)} className={`exam-tab ${idx === activeTabIdx ? "active" : ""}`}>
-              {tab.name}
-              <span style={{ marginLeft: 5, fontSize: 11, opacity: 0.6 }}>({tab.words.length})</span>
+              {tab.name} <span className="exam-tab-count">{tab.words.length}</span>
             </button>
           ))}
         </div>
@@ -1393,16 +1450,15 @@ export default function VocabApp() {
         <div className="mode-strip">
           {[["list","📖 단어장"],["card","🃏 카드 학습"],["test","🎯 단어퀴즈"],["cardtest","⚡ 깜빡이테스트"],
             ...(user.role === "teacher" ? [["dashboard","📊 학습현황"]] : [])].map(([k,l]) => (
-            <button key={k} className={`tab-btn ${mode===k?"active":""}`}
+            <button key={k} className={`mode-chip ${mode===k?"active":""}`}
               onClick={() => { setMode(k); if(k==="card") startCards(); }}
-              style={{ whiteSpace: "nowrap" }}
             >{l}</button>
           ))}
         </div>
 
         {mode === "list" && (
           <>
-            <SectionChips label="📂 범위 선택" sections={allSections} allWords={allWords} selected={selectedSections}
+            <SectionChips variant="card" label="📂 범위 선택" sections={allSections} allWords={allWords} selected={selectedSections}
               onToggle={toggleSection} onAll={() => setSelectedSections(new Set(allSections))} onNone={() => setSelectedSections(new Set())} />
             <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 14, flexWrap: "wrap" }}>
               <button className={`pill ${hiddenFields.has("word")?"active":""}`} onClick={() => toggleHidden("word")}>단어 가리기</button>
@@ -1463,7 +1519,7 @@ export default function VocabApp() {
         {/* CARD */}
         {mode === "card" && (
           <div style={{ animation: "fadeUp 0.4s ease-out" }}>
-            <SectionChips label="🃏 카드 범위 선택" sections={allSections} allWords={allWords} selected={cardSections}
+            <SectionChips variant="card" label="🃏 카드 범위 선택" sections={allSections} allWords={allWords} selected={cardSections}
               onToggle={toggleCardSection} onAll={() => setCardSections(new Set(allSections))} onNone={() => setCardSections(new Set())} />
             {/* 순서/셔플 토글 */}
             <div style={{ display: "flex", gap: 8, marginBottom: 20 }}>
