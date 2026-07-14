@@ -192,9 +192,11 @@ function MCQTest({ allWords, allSections, user, tabName }) {
   const [screen, setScreen]             = useState("setup");
   const [deck, setDeck]                 = useState([]);   // [{word, choices, answerIdx}]
   const [qIdx, setQIdx]                 = useState(0);
-  const [chosen, setChosen]             = useState(null); // 선택한 보기 인덱스
+  const [chosen, setChosen]             = useState(null); // 선택한 보기 인덱스 (-1 = 시간 초과, 미선택)
   const [score, setScore]               = useState(0);
   const [wrongList, setWrongList]       = useState([]);
+  const [timeLeft, setTimeLeft]         = useState(10);  // 문항당 제한시간(초)
+  const tickRef = useRef(null);
 
   const filteredWords = useMemo(
     () => allWords.filter(w => testSections.has(w.s)
@@ -265,6 +267,7 @@ function MCQTest({ allWords, allSections, user, tabName }) {
 
   const handleChoice = (idx) => {
     if (chosen !== null) return; // 이미 선택함
+    clearInterval(tickRef.current);
     unlockAudio(); // synchronous unlock for iOS Safari
     setChosen(idx);
     const correct = idx === deck[qIdx].answerIdx;
@@ -288,6 +291,33 @@ function MCQTest({ allWords, allSections, user, tabName }) {
       }
     }
   };
+
+  // 문항당 10초 제한시간: 새 문제가 시작되면 카운트다운 시작
+  useEffect(() => {
+    if (screen !== "quiz") return;
+    setTimeLeft(10);
+    clearInterval(tickRef.current);
+    tickRef.current = setInterval(() => {
+      setTimeLeft(t => (t > 0 ? t - 1 : 0));
+    }, 1000);
+    return () => clearInterval(tickRef.current);
+  }, [qIdx, screen]);
+
+  // 시간 초과: 선택하지 않은 채로 0초가 되면 오답 처리
+  useEffect(() => {
+    if (screen !== "quiz" || chosen !== null || timeLeft > 0) return;
+    unlockAudio();
+    playWrong();
+    setChosen(-1); // -1 = 시간 초과(미선택)
+    setWrongList(wl => [...wl, deck[qIdx].word]);
+  }, [timeLeft]);
+
+  // 보기를 선택하면(정답/오답/시간초과 무관) 잠시 후 자동으로 다음 문항으로 이동
+  useEffect(() => {
+    if (screen !== "quiz" || chosen === null) return;
+    const t = setTimeout(() => next(), 900);
+    return () => clearTimeout(t);
+  }, [chosen]);
 
   /* ── setup ── */
   if (screen === "setup") {
@@ -427,12 +457,17 @@ function MCQTest({ allWords, allSections, user, tabName }) {
   return (
     <div style={{ animation: "fadeUp 0.3s ease-out", maxWidth: 560, margin: "0 auto" }}>
       {/* 진행 바 */}
-      <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 24 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 10 }}>
         <div style={{ flex: 1, height: 4, background: "#e8e3db", borderRadius: 2, overflow: "hidden" }}>
           <div style={{ width: `${(qIdx / deck.length) * 100}%`, height: "100%", background: "#c4a46c", transition: "width 0.3s" }} />
         </div>
         <span style={{ fontSize: 12, color: "#a0978a", whiteSpace: "nowrap" }}>{qIdx + 1} / {deck.length}</span>
         <span style={{ fontSize: 12, color: "#5a9a6a", fontWeight: 600 }}>{score}점</span>
+        <span style={{ fontSize: 12, fontWeight: 700, color: timeLeft <= 3 ? "#d4644a" : "#a0978a", minWidth: 30, textAlign: "right" }}>⏱ {timeLeft}s</span>
+      </div>
+      {/* 제한시간 바 */}
+      <div style={{ height: 4, background: "#f0ece5", borderRadius: 2, overflow: "hidden", marginBottom: 24 }}>
+        <div style={{ width: `${(timeLeft / 10) * 100}%`, height: "100%", background: timeLeft <= 3 ? "#d4644a" : "#c4a46c", transition: "width 1s linear" }} />
       </div>
       {/* 문제 */}
       <div style={{ background: "#fff", borderRadius: 16, padding: "32px 28px", marginBottom: 16, textAlign: "center", boxShadow: "0 2px 12px rgba(44,40,36,0.07)" }}>
@@ -474,12 +509,11 @@ function MCQTest({ allWords, allSections, user, tabName }) {
           );
         })}
       </div>
-      {/* 다음 버튼 */}
+      {/* 자동 진행 안내 */}
       {chosen !== null && (
-        <div style={{ marginTop: 20, textAlign: "center" }}>
-          <button className="action-btn primary" onClick={next}>
-            {qIdx + 1 < deck.length ? "다음 →" : "결과 보기"}
-          </button>
+        <div style={{ marginTop: 20, textAlign: "center", fontSize: 13, color: chosen === -1 ? "#d4644a" : "#a0978a" }}>
+          {chosen === -1 ? "⏱ 시간 초과! " : ""}
+          {qIdx + 1 < deck.length ? "잠시 후 다음 문제로 넘어갑니다..." : "결과를 확인하는 중..."}
         </div>
       )}
     </div>
