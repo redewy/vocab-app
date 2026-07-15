@@ -184,6 +184,8 @@ async function playWrong() {
 }
 
 /* ───────────────── MCQ TEST (객관식 4지선다) ───────────────── */
+const MCQ_TIME_LIMIT = 7; // 문항당 제한시간(초)
+
 function MCQTest({ allWords, allSections, user, tabName }) {
   const [testSections, setTestSections] = useState(new Set(allSections));
   const [direction, setDirection]       = useState("kor"); // kor=영단어→뜻, eng=뜻→영단어
@@ -195,7 +197,7 @@ function MCQTest({ allWords, allSections, user, tabName }) {
   const [chosen, setChosen]             = useState(null); // 선택한 보기 인덱스 (-1 = 시간 초과, 미선택)
   const [score, setScore]               = useState(0);
   const [wrongList, setWrongList]       = useState([]);
-  const [timeLeft, setTimeLeft]         = useState(10);  // 문항당 제한시간(초)
+  const [timeLeft, setTimeLeft]         = useState(MCQ_TIME_LIMIT);
   const tickRef = useRef(null);
 
   const filteredWords = useMemo(
@@ -292,10 +294,10 @@ function MCQTest({ allWords, allSections, user, tabName }) {
     }
   };
 
-  // 문항당 10초 제한시간: 새 문제가 시작되면 카운트다운 시작
+  // 문항당 제한시간: 새 문제가 시작되면 카운트다운 시작
   useEffect(() => {
     if (screen !== "quiz") return;
-    setTimeLeft(10);
+    setTimeLeft(MCQ_TIME_LIMIT);
     clearInterval(tickRef.current);
     tickRef.current = setInterval(() => {
       setTimeLeft(t => (t > 0 ? t - 1 : 0));
@@ -467,7 +469,7 @@ function MCQTest({ allWords, allSections, user, tabName }) {
       </div>
       {/* 제한시간 바 */}
       <div style={{ height: 4, background: "#f0ece5", borderRadius: 2, overflow: "hidden", marginBottom: 24 }}>
-        <div style={{ width: `${(timeLeft / 10) * 100}%`, height: "100%", background: timeLeft <= 3 ? "#d4644a" : "#c4a46c", transition: "width 1s linear" }} />
+        <div style={{ width: `${(timeLeft / MCQ_TIME_LIMIT) * 100}%`, height: "100%", background: timeLeft <= 3 ? "#d4644a" : "#c4a46c", transition: "width 1s linear" }} />
       </div>
       {/* 문제 */}
       <div style={{ background: "#fff", borderRadius: 16, padding: "32px 28px", marginBottom: 16, textAlign: "center", boxShadow: "0 2px 12px rgba(44,40,36,0.07)" }}>
