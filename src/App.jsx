@@ -199,6 +199,7 @@ function MCQTest({ allWords, allSections, user, tabName }) {
   const [wrongList, setWrongList]       = useState([]);
   const [timeLeft, setTimeLeft]         = useState(MCQ_TIME_LIMIT);
   const [shareMsg, setShareMsg]         = useState("");
+  const [finishedAt, setFinishedAt]     = useState(null);
   const tickRef = useRef(null);
 
   const filteredWords = useMemo(
@@ -282,6 +283,7 @@ function MCQTest({ allWords, allSections, user, tabName }) {
     if (qIdx + 1 < deck.length) { setQIdx(i => i + 1); setChosen(null); }
     else {
       setScreen("done");
+      setFinishedAt(new Date());
       // 회원 학습기록 저장 (실패해도 앱 흐름에는 영향 없음)
       if (user) {
         const typeLabel = testType === "synonym" ? "유의어"
@@ -381,16 +383,20 @@ function MCQTest({ allWords, allSections, user, tabName }) {
     const typeLabel = testType === "synonym" ? "유의어"
       : testType === "antonym" ? "반의어"
       : direction === "kor" ? "영단어→뜻" : "뜻→영단어";
-    const shareText = `[원포원영어학원] 단어퀴즈 결과\n${tabName ? tabName + " · " : ""}${typeLabel}\n${score} / ${deck.length}문제 정답 (정답률 ${pct}%)`;
+    const pad = (n) => String(n).padStart(2, "0");
+    const dt = finishedAt || new Date();
+    const dateStr = `${dt.getFullYear()}.${pad(dt.getMonth() + 1)}.${pad(dt.getDate())} ${pad(dt.getHours())}:${pad(dt.getMinutes())}`;
+    const sectionList = allSections.filter(s => testSections.has(s)).map(s => `#${s}`).join(", ");
+    const shareText = `[원포원영어학원] 단어퀴즈 결과\n이름: ${user?.name || "비회원"}\n일시: ${dateStr}\n${tabName ? tabName + " · " : ""}${typeLabel}\n범위: ${sectionList || "전체"}\n${score} / ${deck.length}문제 정답 (정답률 ${pct}%)\n원포원영어학원`;
 
     const handleShare = async () => {
-      const shareData = { title: "단어퀴즈 결과", text: shareText, url: window.location.href };
+      const shareData = { title: "단어퀴즈 결과", text: shareText };
       if (navigator.share) {
         try { await navigator.share(shareData); } catch { /* 사용자 취소 등은 무시 */ }
         return;
       }
       try {
-        await navigator.clipboard.writeText(`${shareText}\n${window.location.href}`);
+        await navigator.clipboard.writeText(shareText);
         setShareMsg("결과가 복사되었습니다. 카카오톡 등에 붙여넣어 공유해보세요!");
       } catch {
         setShareMsg("이 브라우저에서는 공유하기를 지원하지 않아요.");
