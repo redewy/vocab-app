@@ -198,6 +198,7 @@ function MCQTest({ allWords, allSections, user, tabName }) {
   const [score, setScore]               = useState(0);
   const [wrongList, setWrongList]       = useState([]);
   const [timeLeft, setTimeLeft]         = useState(MCQ_TIME_LIMIT);
+  const [shareMsg, setShareMsg]         = useState("");
   const tickRef = useRef(null);
 
   const filteredWords = useMemo(
@@ -377,6 +378,26 @@ function MCQTest({ allWords, allSections, user, tabName }) {
   /* ── done ── */
   if (screen === "done") {
     const pct = Math.round(score / deck.length * 100);
+    const typeLabel = testType === "synonym" ? "유의어"
+      : testType === "antonym" ? "반의어"
+      : direction === "kor" ? "영단어→뜻" : "뜻→영단어";
+    const shareText = `[원포원영어학원] 단어퀴즈 결과\n${tabName ? tabName + " · " : ""}${typeLabel}\n${score} / ${deck.length}문제 정답 (정답률 ${pct}%)`;
+
+    const handleShare = async () => {
+      const shareData = { title: "단어퀴즈 결과", text: shareText, url: window.location.href };
+      if (navigator.share) {
+        try { await navigator.share(shareData); } catch { /* 사용자 취소 등은 무시 */ }
+        return;
+      }
+      try {
+        await navigator.clipboard.writeText(`${shareText}\n${window.location.href}`);
+        setShareMsg("결과가 복사되었습니다. 카카오톡 등에 붙여넣어 공유해보세요!");
+      } catch {
+        setShareMsg("이 브라우저에서는 공유하기를 지원하지 않아요.");
+      }
+      setTimeout(() => setShareMsg(""), 3000);
+    };
+
     return (
       <div style={{ padding: "40px 20px", maxWidth: 500, margin: "0 auto", animation: "fadeUp 0.4s ease-out" }}>
         <div style={{ textAlign: "center", marginBottom: 32 }}>
@@ -391,7 +412,9 @@ function MCQTest({ allWords, allSections, user, tabName }) {
             {wrongList.length > 0 &&
               <button className="action-btn secondary" onClick={retryWrong}>❌ 틀린 것만 ({wrongList.length})</button>}
             <button className="action-btn secondary" onClick={() => setScreen("setup")}>설정으로</button>
+            <button className="action-btn secondary" onClick={handleShare}>📤 결과 공유하기</button>
           </div>
+          {shareMsg && <p style={{ fontSize: 12, color: "#5a9a6a", marginTop: 12 }}>{shareMsg}</p>}
         </div>
         {wrongList.length > 0 && (
           <div style={{ borderTop: "1px solid #e8e3db", paddingTop: 20 }}>
