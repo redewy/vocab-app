@@ -100,6 +100,30 @@ function getSections(words) {
   });
 }
 
+// 깜빡이테스트 학습기록 유형 (시트 '유형' 칸에 그대로 기록됨)
+const BLINK_TYPE = "깜빡이";
+
+// 학습기록 로그에서 깜빡이 진도를 계산 → { "20": { count, last }, ... }
+// 진도를 따로 저장하지 않고 로그에서 매번 계산하므로 회독수·마지막 학습일이 항상 정확함
+function buildBlinkProgress(records, tabName) {
+  const map = {};
+  (records || []).forEach(r => {
+    if (r.type !== BLINK_TYPE) return;
+    if (tabName && r.tab !== tabName) return;
+    const d = new Date(r.date);
+    if (isNaN(d.getTime())) return;
+    String(r.sections || "")
+      .split(",").map(s => s.trim()).filter(Boolean)
+      .forEach(sec => {
+        const cur = map[sec] || { count: 0, last: d };
+        cur.count += 1;
+        if (d > cur.last) cur.last = d;
+        map[sec] = cur;
+      });
+  });
+  return map;
+}
+
 let _audioCtx = null;
 
 // iOS Safari requires AudioContext creation + resume inside a synchronous user gesture.
@@ -552,9 +576,11 @@ function MCQTest({ allWords, allSections, user, tabName }) {
 }
 
 /* ───────────────── CARD TEST MODE ───────────────── */
-function CardTestMode({ allWords, allSections }) {
+function CardTestMode({ allWords, allSections, user, tabName, progress, onRecord }) {
   const [testSections, setTestSections] = useState(new Set(allSections));
   const [wordCount, setWordCount] = useState(20);
+  const [wordDuration, setWordDuration] = useState(3);
+  const [blackDuration, setBlackDuration] = useState(5);
   const [screen, setScreen] = useState("setup");
   const [deck, setDeck] = useState([]);
   const [idx, setIdx] = useState(0);
@@ -576,36 +602,47 @@ function CardTestMode({ allWords, allSections }) {
     [allWords, testSections]
   );
 
-  const goBlack = (curIdx, curDeck) => {
+  // 완주 시 학습기록 1행 저장 — 진도는 이 로그에서 계산되므로 별도 진도 저장은 하지 않음
+  const saveProgress = (finishedDeck) => {
+    if (!user || !finishedDeck.length) return;
+    const secs = [...new Set(finishedDeck.map(w => w.s))];
+    // 채점이 없는 유형이라 score는 보내지 않음 (시트의 점수/정답률 칸을 비워둠)
+    const result = { tab: tabName || "", type: BLINK_TYPE, total: finishedDeck.length, sections: secs };
+    onRecord?.({ ...result, date: new Date().toISOString(), sections: secs.join(", ") });
+    postApi("saveResult", { id: user.id, result });
+  };
+
+  const goBlack = (curIdx, curDeck, wDur, bDur) => {
     clearTimers();
     setScreen("black");
-    let c = 5;
+    let c = bDur;
     setCountdown(c);
     const iv = setInterval(() => { c--; setCountdown(c); }, 1000);
     const to = setTimeout(() => {
       clearInterval(iv);
       if (curIdx + 1 < curDeck.length) {
-        goWord(curIdx + 1, curDeck);
+        goWord(curIdx + 1, curDeck, wDur, bDur);
       } else {
         clearTimers();
         setScreen("done");
+        saveProgress(curDeck); // 끝까지 완주했을 때만 1회차로 기록 (중단 시에는 기록 안 함)
       }
-    }, 5000);
+    }, bDur * 1000);
     timerRef.current = { to, iv };
   };
 
-  const goWord = (curIdx, curDeck) => {
+  const goWord = (curIdx, curDeck, wDur, bDur) => {
     clearTimers();
     setIdx(curIdx);
     setScreen("word");
     playShutter();
-    let c = 3;
+    let c = wDur;
     setCountdown(c);
     const iv = setInterval(() => { c--; setCountdown(c); }, 1000);
     const to = setTimeout(() => {
       clearInterval(iv);
-      goBlack(curIdx, curDeck);
-    }, 3000);
+      goBlack(curIdx, curDeck, wDur, bDur);
+    }, wDur * 1000);
     timerRef.current = { to, iv };
   };
 
@@ -615,7 +652,7 @@ function CardTestMode({ allWords, allSections }) {
     if (actualCount === 0) return;
     const newDeck = shuffle(filteredWords).slice(0, actualCount);
     setDeck(newDeck);
-    goWord(0, newDeck);
+    goWord(0, newDeck, wordDuration, blackDuration);
   };
 
   const stopTest = () => { clearTimers(); setScreen("setup"); };
@@ -665,9 +702,14 @@ function CardTestMode({ allWords, allSections }) {
         <div style={{ textAlign: "center", marginBottom: 32 }}>
           <div style={{ fontSize: 52, marginBottom: 16 }}>✅</div>
           <h2 style={{ fontSize: 22, fontWeight: 700, color: "#2c2824", marginBottom: 8 }}>테스트 완료!</h2>
-          <p style={{ fontSize: 14, color: "#8a8278", marginBottom: 24 }}>총 {deck.length}개 단어를 모두 봤어요.</p>
+          <p style={{ fontSize: 14, color: "#8a8278", marginBottom: 8 }}>총 {deck.length}개 단어를 모두 봤어요.</p>
+          <p style={{ fontSize: 13, color: "#2f7f7a", fontWeight: 700, marginBottom: 24 }}>
+            {user
+              ? `📘 진도 기록됨 · ${[...new Set(deck.map(w => w.s))].map(s => `#${s}`).join(", ")}`
+              : "로그인하면 진도가 기록됩니다."}
+          </p>
           <div style={{ display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "center" }}>
-            <button className="action-btn primary" onClick={() => goWord(0, deck)}>🔄 다시 시작</button>
+            <button className="action-btn primary" onClick={() => goWord(0, deck, wordDuration, blackDuration)}>🔄 다시 시작</button>
             <button className="action-btn secondary" onClick={stopTest}>설정으로</button>
           </div>
         </div>
@@ -692,6 +734,7 @@ function CardTestMode({ allWords, allSections }) {
   return (
     <div style={{ animation: "fadeUp 0.4s ease-out" }}>
       <SectionChips variant="card" label="📂 범위 선택" sections={allSections} allWords={allWords} selected={testSections}
+        progress={user ? progress : undefined}
         onToggle={toggleSec} onAll={() => setTestSections(new Set(allSections))} onNone={() => setTestSections(new Set())} />
       <div style={{ marginBottom: 20 }}>
         <div style={{ fontSize: 11, color: "#a0978a", marginBottom: 8, fontWeight: 500 }}>테스트 단어 수</div>
@@ -706,8 +749,24 @@ function CardTestMode({ allWords, allSections }) {
           선택 범위 {filteredWords.length}개 중 {actualCount}개 출제
         </p>
       </div>
+      <div style={{ marginBottom: 16 }}>
+        <div style={{ fontSize: 11, color: "#a0978a", marginBottom: 8, fontWeight: 500 }}>영단어 표시 시간</div>
+        <div style={{ display: "flex", gap: 8 }}>
+          {[3, 5].map(n => (
+            <button key={n} className={`pill ${wordDuration === n ? "active" : ""}`} onClick={() => setWordDuration(n)}>{n}초</button>
+          ))}
+        </div>
+      </div>
+      <div style={{ marginBottom: 20 }}>
+        <div style={{ fontSize: 11, color: "#a0978a", marginBottom: 8, fontWeight: 500 }}>검은 화면 시간 (뜻 쓰기)</div>
+        <div style={{ display: "flex", gap: 8 }}>
+          {[3, 5].map(n => (
+            <button key={n} className={`pill ${blackDuration === n ? "active" : ""}`} onClick={() => setBlackDuration(n)}>{n}초</button>
+          ))}
+        </div>
+      </div>
       <div style={{ marginBottom: 24, padding: "14px 18px", background: "rgba(196,164,108,0.08)", borderRadius: 10, border: "1px solid rgba(196,164,108,0.2)", fontSize: 13, color: "#6b655c", lineHeight: 1.9 }}>
-        📸 영단어 <strong>3초</strong> 표시 후 → 검은 화면 <strong>5초</strong> (종이에 한글 뜻 쓰기)<br/>
+        📸 영단어 <strong>{wordDuration}초</strong> 표시 후 → 검은 화면 <strong>{blackDuration}초</strong> (종이에 한글 뜻 쓰기)<br/>
         찰칵 소리와 함께 다음 단어로 넘어갑니다.
       </div>
       <button className="action-btn primary" onClick={startTest} disabled={filteredWords.length === 0}
@@ -926,14 +985,19 @@ function PrintView({ tabs, activeTabIdx, onClose }) {
 }
 
 /* ───────────────── SECTION CHIPS ───────────────── */
-function SectionChips({ sections, allWords, selected, onToggle, onAll, onNone, label, variant = "pill" }) {
+function SectionChips({ sections, allWords, selected, onToggle, onAll, onNone, label, variant = "pill", progress }) {
+  const fmtProgDate = (d) => `${d.getMonth() + 1}/${d.getDate()}`;
   if (variant === "card") {
+    const studied = progress ? sections.filter(s => progress[String(s)]).length : 0;
     return (
       <div style={{ marginBottom: 16 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10, flexWrap: "wrap", gap: 8 }}>
           <div style={{ fontSize: 13, color: "#4f5b6b", fontWeight: 700, display: "flex", alignItems: "center", gap: 6 }}>
             {label}
             <span style={{ fontSize: 12, color: "#a0978a", fontWeight: 500 }}>{selected.size}/{sections.length}</span>
+            {progress && (
+              <span style={{ fontSize: 12, color: "#2f7f7a", fontWeight: 700 }}>· 학습한 범위 {studied}/{sections.length}</span>
+            )}
           </div>
           <div style={{ display: "flex", gap: 6 }}>
             <button className="pill" onClick={onAll} style={{ fontSize: 11 }}>전체</button>
@@ -941,12 +1005,19 @@ function SectionChips({ sections, allWords, selected, onToggle, onAll, onNone, l
           </div>
         </div>
         <div className="chip-grid">
-          {sections.map(s => (
-            <button key={s} className={`section-chip ${selected.has(s) ? "active" : ""}`} onClick={() => onToggle(s)}>
-              <span className="chip-num">#{s}</span>
-              <span className="chip-count">{allWords.filter(w => w.s === s).length}</span>
-            </button>
-          ))}
+          {sections.map(s => {
+            const p = progress?.[String(s)];
+            return (
+              <button key={s} className={`section-chip ${selected.has(s) ? "active" : ""} ${p ? "studied" : ""}`} onClick={() => onToggle(s)}>
+                <span className="chip-num">#{s}</span>
+                <span className="chip-count">{allWords.filter(w => w.s === s).length}</span>
+                {progress && (
+                  p ? <span className="chip-prog">{p.count}회·{fmtProgDate(p.last)}</span>
+                    : <span className="chip-prog none">―</span>
+                )}
+              </button>
+            );
+          })}
         </div>
       </div>
     );
@@ -1000,8 +1071,10 @@ function TeacherDashboard({ user }) {
       .filter(m => m.role !== "teacher")
       .map(m => {
         const recs = (byId[m.id] || []).slice().sort((a, b) => new Date(b.date) - new Date(a.date));
-        const totalQ = recs.reduce((s, r) => s + r.total, 0);
-        const totalS = recs.reduce((s, r) => s + r.score, 0);
+        // 깜빡이는 채점이 없어 점수가 0으로 들어오므로 평균 정답률 계산에서 제외
+        const scored = recs.filter(r => r.type !== BLINK_TYPE);
+        const totalQ = scored.reduce((s, r) => s + r.total, 0);
+        const totalS = scored.reduce((s, r) => s + r.score, 0);
         const last = recs[0] ? new Date(recs[0].date) : null;
         return {
           ...m, recs,
@@ -1072,18 +1145,24 @@ function TeacherDashboard({ user }) {
                 {st.recs.length === 0 && <div style={{ fontSize: 12, color: "#a0978a", padding: "10px 0" }}>아직 테스트 기록이 없습니다.</div>}
                 {st.recs.map((r, i) => {
                   const d = new Date(r.date);
-                  const pct = r.total > 0 ? Math.round(r.score / r.total * 100) : null;
+                  const isBlink = r.type === BLINK_TYPE;
+                  const pct = (!isBlink && r.total > 0) ? Math.round(r.score / r.total * 100) : null;
                   return (
                     <div key={i} style={{ padding: "9px 0", borderBottom: i < st.recs.length - 1 ? "1px solid #edf0f5" : "none" }}>
                       <div style={{ display: "flex", gap: 10, alignItems: "baseline", flexWrap: "wrap" }}>
                         <span style={{ fontSize: 12, color: "#657083", minWidth: 74 }}>{fmtDate(d)} {fmtTime(d)}</span>
                         <span style={{ fontSize: 12, fontWeight: 700, color: "#2f7f7a" }}>{r.type}</span>
                         <span style={{ fontSize: 11, color: "#a0978a" }}>{r.tab}</span>
-                        <span style={{ marginLeft: "auto", fontSize: 13, fontWeight: 800, color: pctColor(pct) }}>
-                          {r.score}/{r.total} ({pct}%)
+                        <span style={{ marginLeft: "auto", fontSize: 13, fontWeight: 800, color: isBlink ? "#657083" : pctColor(pct) }}>
+                          {isBlink ? `${r.total}단어` : `${r.score}/${r.total} (${pct}%)`}
                         </span>
                       </div>
-                      {r.wrong && (
+                      {isBlink && r.sections && (
+                        <div style={{ fontSize: 11, color: "#2f7f7a", marginTop: 3, overflowWrap: "anywhere" }}>
+                          범위: {r.sections}
+                        </div>
+                      )}
+                      {!isBlink && r.wrong && (
                         <div style={{ fontSize: 11, color: "#d4644a", marginTop: 3, overflowWrap: "anywhere" }}>
                           틀린 단어: {r.wrong}
                         </div>
@@ -1138,13 +1217,36 @@ export default function VocabApp() {
   const [uploadMsg, setUploadMsg] = useState("");
   const fileRef = useRef(null);
   const swipeRef = useRef(null);
+  // 📘 학습기록 — 깜빡이 진도 계산용. localStorage 캐시로 즉시 표시하고 서버와 동기화
+  const [records, setRecords] = useState(() => {
+    try {
+      const saved = localStorage.getItem("vocab-records");
+      return saved ? JSON.parse(saved) : [];
+    } catch { return []; }
+  });
 
   const allSections = useMemo(() => getSections(allWords), [allWords]);
+  const activeTabName = tabs[activeTabIdx]?.name || "";
+  // 현재 교재(탭)의 깜빡이 진도 — 범위별 학습 횟수 + 마지막 학습일
+  const blinkProgress = useMemo(
+    () => buildBlinkProgress(records, activeTabName),
+    [records, activeTabName]
+  );
+
+  const loadRecords = async (id) => {
+    const res = await postApi("getRecords", { id });
+    if (res.ok) setRecords(res.records || []);
+  };
 
   // ⭐ 즐겨찾기 localStorage 자동 저장 (오프라인 캐시)
   useEffect(() => {
     try { localStorage.setItem("vocab-starred", JSON.stringify([...starred])); } catch {}
   }, [starred]);
+
+  // 📘 학습기록 localStorage 캐시 (다음 방문 때 진도가 바로 뜨도록)
+  useEffect(() => {
+    try { localStorage.setItem("vocab-records", JSON.stringify(records)); } catch {}
+  }, [records]);
 
   // 로그인 처리: 세션 저장 + 서버 즐겨찾기 반영
   const handleLogin = (u) => {
@@ -1153,15 +1255,19 @@ export default function VocabApp() {
     try { localStorage.setItem("vocab-user", JSON.stringify(session)); } catch {}
     setStarred(new Set(u.stars || []));
     starsSyncReadyRef.current = true;
+    setRecords([]);       // 이전 계정의 진도 캐시가 남지 않도록 비우고
+    loadRecords(u.id);    // 이 계정 기록을 서버에서 받아옴
   };
 
   const handleLogout = () => {
     setUser(null);
     starsSyncReadyRef.current = false;
     setStarred(new Set());
+    setRecords([]);
     try {
       localStorage.removeItem("vocab-user");
       localStorage.removeItem("vocab-starred");
+      localStorage.removeItem("vocab-records");
     } catch {}
   };
 
@@ -1178,6 +1284,7 @@ export default function VocabApp() {
         const session = { id: user.id, name: res.name, role: res.role || "" };
         setUser(session);
         try { localStorage.setItem("vocab-user", JSON.stringify(session)); } catch {}
+        loadRecords(user.id); // 진도도 서버 기준으로 갱신 (다른 기기에서 한 학습 반영)
       } else {
         handleLogout(); // 삭제된 회원 등
       }
@@ -1440,10 +1547,15 @@ export default function VocabApp() {
         .exam-tab.active{color:#1a2233;font-weight:800}
         .exam-tab.active::after{content:"";position:absolute;left:0;right:0;bottom:-1px;height:2px;background:#214f2d;border-radius:2px}
         .mode-strip{display:flex;gap:8px;margin:16px 0;flex-wrap:wrap}
-        .chip-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(56px,1fr));gap:6px}
+        .chip-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(60px,1fr));gap:6px}
         .section-chip{background:#fff;border:1.5px solid #d8dee8;border-radius:8px;padding:5px 4px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:1px;transition:all 0.15s;font-family:var(--font-sans)}
         .section-chip:hover{border-color:#2f7f7a}
+        .section-chip.studied{border-color:#a9d5d0;background:#f5fbfa}
         .section-chip.active{background:#1d3b26;border-color:#1d3b26;box-shadow:0 4px 12px rgba(29,59,38,0.22)}
+        .chip-prog{font-size:10px;font-weight:700;color:#2f7f7a;white-space:nowrap;letter-spacing:-0.2px}
+        .chip-prog.none{color:#c3cad4;font-weight:500}
+        .section-chip.active .chip-prog{color:#9fd8c8}
+        .section-chip.active .chip-prog.none{color:rgba(255,255,255,0.35)}
         .chip-num{font-size:12px;font-weight:800;color:#344153}
         .section-chip.active .chip-num{color:#fff}
         .chip-count{font-size:10px;color:#a0978a}
@@ -1646,7 +1758,9 @@ export default function VocabApp() {
 
         {/* CARD TEST */}
         {mode === "cardtest" && (
-          <CardTestMode allWords={allWords} allSections={allSections} />
+          <CardTestMode allWords={allWords} allSections={allSections} key={activeTabIdx}
+            user={user} tabName={activeTabName} progress={blinkProgress}
+            onRecord={(rec) => setRecords(rs => [...rs, { ...rec, id: user?.id }])} />
         )}
 
         {/* TEST — 객관식 4지선다 */}
