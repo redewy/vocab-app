@@ -6,6 +6,12 @@
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "dev"],
       "port": 5173
+    },
+    {
+      "name": "hasun-suho-dev",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev", "--prefix", "/Users/youngjinyoo/Documents/GitHub/HASUN_SUHO_voca", "--", "--port", "5175", "--strictPort"],
+      "port": 5175
     }
   ]
 }

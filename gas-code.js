@@ -100,8 +100,9 @@ function doGet() {
  *  - login     { id, pw }                      → { ok, name, stars }
  *  - getUser   { id }                          → { ok, name, stars, role } (세션 복원용)
  *  - getDashboard { id }                       → { ok, members, records } (teacher 전용)
+ *  - getRecords { id }                         → { ok, records } (본인 진도 조회)
  *  - saveStars { id, stars: ["word", ...] }
- *  - saveResult{ id, result: { tab, type, direction, score, total, wrong: ["word", ...] } }
+ *  - saveResult{ id, result: { tab, type, direction, score, total, wrong: [...], sections: [...] } }
  */
 
 function jsonOut(obj) {
@@ -126,13 +127,16 @@ function memberRole(rowData) {
   return String(rowData[5] || "").trim().toLowerCase();
 }
 
-// 학습기록 시트: 날짜 | 아이디 | 이름 | 탭 | 유형 | 점수 | 총문제 | 정답률 | 틀린단어
+// 학습기록 시트: 날짜 | 아이디 | 이름 | 탭 | 유형 | 점수 | 총문제 | 정답률 | 틀린단어 | 범위
 function getRecordSheet(ss) {
   var sh = ss.getSheetByName("학습기록");
   if (!sh) {
     sh = ss.insertSheet("학습기록");
-    sh.appendRow(["날짜", "아이디", "이름", "탭", "유형", "점수", "총문제", "정답률", "틀린단어"]);
+    sh.appendRow(["날짜", "아이디", "이름", "탭", "유형", "점수", "총문제", "정답률", "틀린단어", "범위"]);
+    return sh;
   }
+  // 기존 시트 마이그레이션: J열(범위) 헤더가 없으면 추가 (기존 행 데이터는 그대로 유지됨)
+  if (String(sh.getRange(1, 10).getValue()).trim() === "") sh.getRange(1, 10).setValue("범위");
   return sh;
 }
 
@@ -211,9 +215,30 @@ function doPost(e) {
           score: Number(rData[ri][5]) || 0,
           total: Number(rData[ri][6]) || 0,
           wrong: String(rData[ri][8] || ""),
+          sections: String(rData[ri][9] || ""),
         });
       }
       return jsonOut({ ok: true, members: memberList, records: records });
+    }
+
+    // 학생 본인 학습기록 조회 (깜빡이 진도 표시용)
+    if (action === "getRecords") {
+      var myId = String(body.id || "").trim();
+      if (!findMemberRow(members, myId)) return jsonOut({ ok: false, error: "회원을 찾을 수 없습니다." });
+      var qData = getRecordSheet(ss).getDataRange().getValues();
+      var mine = [];
+      for (var qi = 1; qi < qData.length; qi++) {
+        if (String(qData[qi][1]).trim() !== myId) continue;
+        mine.push({
+          date: qData[qi][0] instanceof Date ? qData[qi][0].toISOString() : String(qData[qi][0]),
+          tab: String(qData[qi][3]),
+          type: String(qData[qi][4]),
+          score: Number(qData[qi][5]) || 0,
+          total: Number(qData[qi][6]) || 0,
+          sections: String(qData[qi][9] || ""),
+        });
+      }
+      return jsonOut({ ok: true, records: mine });
     }
 
     if (action === "saveStars") {
@@ -229,13 +254,16 @@ function doPost(e) {
       if (!m3) return jsonOut({ ok: false, error: "회원을 찾을 수 없습니다." });
       var r = body.result || {};
       var total = Number(r.total) || 0;
-      var score = Number(r.score) || 0;
-      var pct = total > 0 ? Math.round(score / total * 100) + "%" : "";
+      // 깜빡이테스트처럼 채점이 없는 유형은 score를 보내지 않음 → 점수/정답률 칸을 비워둠
+      var hasScore = r.score !== undefined && r.score !== null && r.score !== "";
+      var score = hasScore ? (Number(r.score) || 0) : "";
+      var pct = (hasScore && total > 0) ? Math.round(Number(r.score) / total * 100) + "%" : "";
       getRecordSheet(ss).appendRow([
         new Date(), String(body.id).trim(), String(m3.data[2]),
         String(r.tab || ""), String(r.type || ""),
         score, total, pct,
         (Array.isArray(r.wrong) ? r.wrong : []).join(", "),
+        (Array.isArray(r.sections) ? r.sections : []).join(", "),
       ]);
       return jsonOut({ ok: true });
     }
